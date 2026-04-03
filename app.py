@@ -39,7 +39,7 @@ def chat():
                 model="mistral-large-latest",
                 messages=full_messages,
                 stream=True,
-                max_tokens=4096
+                max_tokens=10000
             )
             for chunk in stream:
                 delta = chunk.choices[0].delta
