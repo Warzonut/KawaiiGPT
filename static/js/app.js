@@ -189,11 +189,16 @@ function togglePreview(id) {
 
     const iframe = document.createElement('iframe');
     iframe.className = 'preview-iframe';
-    iframe.srcdoc = content;
 
     panel.appendChild(panelHeader);
     panel.appendChild(iframe);
     wrapper.appendChild(panel);
+
+    // Write after appending to DOM so contentDocument is accessible
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(content);
+    doc.close();
 
     btn.textContent = '▼ Hide';
 }
