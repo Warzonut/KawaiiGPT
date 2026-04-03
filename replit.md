@@ -1,6 +1,6 @@
 # KawaiiGPT
 
-A kawaii-themed AI chatbot and code writer powered by GPT-4o and Flask.
+A kawaii-themed AI chatbot and code writer powered by Mistral and Flask.
 
 ## Architecture
 
