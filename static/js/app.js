@@ -199,6 +199,77 @@ function togglePreview(id) {
     btn.textContent = '▼ Hide';
 }
 
+function addRetryButton(msgDiv) {
+    const contentDiv = msgDiv.querySelector('.message-content');
+    if (!contentDiv) return;
+    const actions = document.createElement('div');
+    actions.className = 'message-actions';
+    const btn = document.createElement('button');
+    btn.className = 'retry-btn';
+    btn.innerHTML = '↺ Retry';
+    btn.addEventListener('click', () => retryLastResponse(msgDiv));
+    actions.appendChild(btn);
+    contentDiv.appendChild(actions);
+}
+
+async function retryLastResponse(msgDiv) {
+    if (isStreaming) return;
+
+    // Drop the last bot turn from both histories
+    conversationHistory.pop();
+    displayMessages.pop();
+
+    // Remove the old bot message from the DOM
+    msgDiv.remove();
+
+    isStreaming = true;
+    sendBtn.disabled = true;
+    showTypingIndicator();
+
+    try {
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: conversationHistory })
+        });
+
+        removeTypingIndicator();
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+
+        const { bubble, contentDiv } = addMessage('bot', '');
+        const newMsgDiv = contentDiv.closest('.message');
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            fullText += chunk;
+            bubble.innerHTML = renderMarkdown(fullText);
+            highlightCodeBlocks(bubble);
+            scrollToBottom();
+        }
+
+        conversationHistory.push({ role: 'assistant', content: fullText });
+        displayMessages.push({ role: 'bot', content: fullText });
+        saveCurrentChat();
+
+        if (newMsgDiv) addRetryButton(newMsgDiv);
+
+    } catch (error) {
+        removeTypingIndicator();
+        const errMsg = `Sorry, I ran into an error: ${error.message}. Please try again.`;
+        addMessage('bot', errMsg);
+        displayMessages.push({ role: 'bot', content: errMsg });
+    } finally {
+        isStreaming = false;
+        sendBtn.disabled = userInput.value.trim() === '';
+    }
+}
+
 function renderMarkdown(text) {
     return marked.parse(text);
 }
@@ -477,6 +548,9 @@ async function sendMessage(text) {
         }
 
         saveCurrentChat();
+
+        const msgDiv = bubble.closest('.message');
+        if (msgDiv) addRetryButton(msgDiv);
 
     } catch (error) {
         removeTypingIndicator();

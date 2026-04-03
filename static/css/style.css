@@ -740,6 +740,30 @@ textarea#userInput::-webkit-scrollbar-thumb {
     font-family: inherit;
 }
 
+/* ── Message actions (retry etc.) ── */
+.message-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.retry-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.retry-btn:hover {
+    background: var(--bg-card);
+    border-color: var(--border-accent);
+    color: var(--accent);
+}
+
 /* ── Message timestamp ── */
 .message-meta {
     font-size: 11px;
