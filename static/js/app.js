@@ -248,10 +248,15 @@ async function retryLastResponse(msgDiv) {
     showTypingIndicator();
 
     try {
+        const maxTokensEl = document.getElementById('maxTokensInput');
+        const maxTokensVal = maxTokensEl ? parseInt(maxTokensEl.value, 10) : undefined;
+        const payload = { messages: conversationHistory };
+        if (!isNaN(maxTokensVal) && maxTokensVal > 0) payload.max_tokens = maxTokensVal;
+
         const response = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: conversationHistory })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -572,10 +577,15 @@ async function sendMessage(text) {
     showTypingIndicator();
 
     try {
+        const maxTokensEl = document.getElementById('maxTokensInput');
+        const maxTokensVal = maxTokensEl ? parseInt(maxTokensEl.value, 10) : undefined;
+        const payload = { messages: conversationHistory };
+        if (!isNaN(maxTokensVal) && maxTokensVal > 0) payload.max_tokens = maxTokensVal;
+
         const response = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: conversationHistory })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {

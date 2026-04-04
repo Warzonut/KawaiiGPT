@@ -36,13 +36,31 @@ You can handle any programming language or technology stack."""
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", max_tokens=MAX_TOKENS)
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    data = request.json
+    data = request.json or {}
     messages = data.get("messages", [])
-    
+
+    # allow per-request override from client, but clamp to the configured MAX_TOKENS
+    requested_max = None
+    try:
+        if data.get("max_tokens") is not None:
+            requested_max = int(data.get("max_tokens"))
+    except Exception:
+        requested_max = None
+
+    effective_max = requested_max if requested_max is not None else MAX_TOKENS
+    try:
+        effective_max = int(effective_max)
+    except Exception:
+        effective_max = MAX_TOKENS
+    if effective_max < 1:
+        effective_max = 1
+    if effective_max > MAX_TOKENS:
+        effective_max = MAX_TOKENS
+
     full_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
 
     def generate():
@@ -51,7 +69,7 @@ def chat():
                 model="mistral-large-latest",
                 messages=full_messages,
                 stream=True,
-                max_tokens=MAX_TOKENS
+                max_tokens=effective_max
             )
             for chunk in stream:
                 delta = chunk.choices[0].delta
