@@ -237,25 +237,36 @@ async function retryLastResponse(msgDiv) {
             body: JSON.stringify({ messages: conversationHistory })
         });
 
-        removeTypingIndicator();
-        if (!response.ok) throw new Error('Network response was not ok');
+        if (!response.ok) {
+            removeTypingIndicator();
+            throw new Error('Network response was not ok');
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = '';
 
-        const { bubble, contentDiv } = addMessage('bot', '');
+        // create a placeholder bot message so the UI shows progress
+        const { bubble, contentDiv } = addMessage('bot', 'Thinking...');
         const newMsgDiv = contentDiv.closest('.message');
+        let firstChunk = true;
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             const chunk = decoder.decode(value, { stream: true });
             fullText += chunk;
+            if (firstChunk) {
+                // remove the typing indicator once the first token arrives
+                removeTypingIndicator();
+                firstChunk = false;
+            }
             bubble.innerHTML = renderMarkdown(fullText);
             highlightCodeBlocks(bubble);
             scrollToBottom();
         }
+
+        if (firstChunk) removeTypingIndicator();
 
         conversationHistory.push({ role: 'assistant', content: fullText });
         displayMessages.push({ role: 'bot', content: fullText });
@@ -529,15 +540,18 @@ async function sendMessage(text) {
             body: JSON.stringify({ messages: conversationHistory })
         });
 
-        removeTypingIndicator();
-
-        if (!response.ok) throw new Error('Network response was not ok');
+        if (!response.ok) {
+            removeTypingIndicator();
+            throw new Error('Network response was not ok');
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = '';
 
-        const { bubble, contentDiv } = addMessage('bot', '');
+        // create a placeholder bot message so the UI shows progress
+        const { bubble, contentDiv } = addMessage('bot', 'Thinking...');
+        let firstChunk = true;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -545,11 +559,17 @@ async function sendMessage(text) {
 
             const chunk = decoder.decode(value, { stream: true });
             fullText += chunk;
+            if (firstChunk) {
+                removeTypingIndicator();
+                firstChunk = false;
+            }
 
             bubble.innerHTML = renderMarkdown(fullText);
             highlightCodeBlocks(bubble);
             scrollToBottom();
         }
+
+        if (firstChunk) removeTypingIndicator();
 
         conversationHistory.push({ role: 'assistant', content: fullText });
         displayMessages.push({ role: 'bot', content: fullText });
