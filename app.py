@@ -63,6 +63,9 @@ def chat():
 
     full_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
 
+    # DEBUG: surface the requested/effective max tokens to logs and response headers
+    print(f"[DEBUG] requested_max={requested_max} effective_max={effective_max}")
+
     def generate():
         try:
             stream = client.chat.completions.create(
@@ -81,7 +84,9 @@ def chat():
     # Disable upstream buffering where possible and ensure chunked stream
     headers = {
         "X-Accel-Buffering": "no",
-        "Cache-Control": "no-cache"
+        "Cache-Control": "no-cache",
+        # Expose the effective max tokens used for this request for debugging
+        "X-Effective-Max-Tokens": str(effective_max)
     }
     return Response(stream_with_context(generate()), mimetype="text/plain; charset=utf-8", headers=headers)
 
