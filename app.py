@@ -68,17 +68,33 @@ def chat():
 
     def generate():
         try:
+            print(f"[DEBUG] starting stream model=mistral-large-latest max_tokens={effective_max} messages={len(full_messages)}")
             stream = client.chat.completions.create(
                 model="mistral-large-latest",
                 messages=full_messages,
                 stream=True,
                 max_tokens=effective_max
             )
+            chunk_index = 0
             for chunk in stream:
+                chunk_index += 1
                 delta = chunk.choices[0].delta
-                if delta.content:
-                    yield delta.content
+                # extract content safely (handle object or dict)
+                content = None
+                try:
+                    content = getattr(delta, 'content', None)
+                except Exception:
+                    try:
+                        content = delta.get('content') if isinstance(delta, dict) else None
+                    except Exception:
+                        content = None
+                if content:
+                    preview = str(content)[:120].replace('\n', '\\n')
+                    print(f"[DEBUG] chunk #{chunk_index} len={len(str(content))} preview={preview}")
+                    yield content
+            print(f"[DEBUG] stream finished total_chunks={chunk_index}")
         except Exception as e:
+            print(f"[DEBUG] stream error: {e}")
             yield f"\n\n[Error: {str(e)}]"
 
     # Disable upstream buffering where possible and ensure chunked stream

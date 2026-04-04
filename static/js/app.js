@@ -97,6 +97,7 @@ function enqueueMessage(text) {
     const id = 'queued-' + generateId();
     const item = { id, text, ts: Date.now() };
     messageQueue.push(item);
+    console.debug('[DEBUG] enqueueMessage', { id, textPreview: text.slice(0, 120) });
     renderQueueUI();
     return item;
 }
@@ -104,6 +105,7 @@ function enqueueMessage(text) {
 function renderQueueUI() {
     const container = document.getElementById('queuedList');
     if (!container) return;
+    console.debug('[DEBUG] renderQueueUI queueLength=', messageQueue.length);
     container.innerHTML = '';
     if (messageQueue.length === 0) {
         container.style.display = 'none';
@@ -144,6 +146,7 @@ function renderQueueUI() {
 function editQueued(id) {
     const q = messageQueue.find(x => x.id === id);
     if (!q) return;
+    console.debug('[DEBUG] editQueued', { id, preview: q.text.slice(0, 120) });
     editingQueueId = id;
     userInput.value = q.text;
     userInput.focus();
@@ -153,17 +156,20 @@ function editQueued(id) {
 }
 
 function removeQueued(id) {
+    console.debug('[DEBUG] removeQueued', { id });
     messageQueue = messageQueue.filter(x => x.id !== id);
     renderQueueUI();
 }
 
 function processQueue() {
+    console.debug('[DEBUG] processQueue start', { isStreaming, queueLength: messageQueue.length });
     if (isStreaming) return;
     if (messageQueue.length === 0) {
         renderQueueUI();
         return;
     }
     const next = messageQueue.shift();
+    console.debug('[DEBUG] processQueue dequeue', { id: next.id, preview: next.text.slice(0, 120) });
     renderQueueUI();
     // small delay to allow UI updates/animations
     setTimeout(() => sendMessage(next.text), 120);
@@ -314,6 +320,7 @@ function addRetryButton(msgDiv) {
 }
 
 async function retryLastResponse(msgDiv) {
+    console.debug('[DEBUG] retryLastResponse invoked', { isStreaming });
     if (isStreaming) return;
 
     // Drop the last bot turn from both histories
@@ -344,6 +351,10 @@ async function retryLastResponse(msgDiv) {
             throw new Error('Network response was not ok');
         }
 
+        console.debug('[DEBUG] /chat response', { status: response.status });
+        const eff = response.headers.get('X-Effective-Max-Tokens');
+        if (eff) console.debug('[DEBUG] X-Effective-Max-Tokens', eff);
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = '';
@@ -360,6 +371,7 @@ async function retryLastResponse(msgDiv) {
             const chunk = decoder.decode(value, { stream: true });
             chunkCount += 1;
             fullText += chunk;
+            console.debug('[DEBUG] retry chunk', { chunkIndex: chunkCount, len: chunk.length, preview: chunk.slice(0,120) });
             if (firstChunk) {
                 // remove the typing indicator once the first token arrives
                 removeTypingIndicator();
@@ -655,7 +667,8 @@ function getModePrefix() {
 }
 
 async function sendMessage(text) {
-    if (!text || isStreaming) return;
+    console.debug('[DEBUG] sendMessage invoked', { textLen: text ? text.length : 0, isStreaming, editingQueueId });
+    if (!text) return;
 
     isStreaming = true;
     sendBtn.disabled = true;
@@ -672,14 +685,20 @@ async function sendMessage(text) {
     try {
         const maxTokensEl = document.getElementById('maxTokensInput');
         const maxTokensVal = maxTokensEl ? parseInt(maxTokensEl.value, 10) : undefined;
+
         const payload = { messages: conversationHistory };
         if (!isNaN(maxTokensVal) && maxTokensVal > 0) payload.max_tokens = maxTokensVal;
+        console.debug('[DEBUG] sending /chat payload', payload);
 
         const response = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+
+        console.debug('[DEBUG] /chat response', { status: response.status });
+        const eff = response.headers.get('X-Effective-Max-Tokens');
+        if (eff) console.debug('[DEBUG] X-Effective-Max-Tokens', eff);
 
         if (!response.ok) {
             removeTypingIndicator();
@@ -702,6 +721,7 @@ async function sendMessage(text) {
             const chunk = decoder.decode(value, { stream: true });
             chunkCount += 1;
             fullText += chunk;
+            console.debug('[DEBUG] chunk', { index: chunkCount, len: chunk.length, preview: chunk.slice(0,120) });
             if (firstChunk) {
                 removeTypingIndicator();
                 firstChunk = false;
@@ -717,6 +737,8 @@ async function sendMessage(text) {
         if (chunkCount <= 1 && fullText.length > 0) {
             animateReveal(bubble, fullText);
         }
+
+        console.debug('[DEBUG] sendMessage complete', { chunkCount, totalLen: fullText.length });
 
         conversationHistory.push({ role: 'assistant', content: fullText });
         displayMessages.push({ role: 'bot', content: fullText });
@@ -891,3 +913,4 @@ document.querySelectorAll('.quick-prompt-btn').forEach(btn => {
 renderHistoryList();
 renderQueueUI();
 userInput.focus();
+console.debug('[DEBUG] KawaiiGPT client ready', { queueLength: messageQueue.length });
