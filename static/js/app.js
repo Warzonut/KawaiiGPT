@@ -69,6 +69,13 @@ function escapeHtml(text) {
         .replace(/'/g, '&#039;');
 }
 
+function decodeHtmlEntities(str) {
+    // Decode HTML entities to raw characters (e.g. &lt; -> <)
+    const txt = document.createElement('textarea');
+    txt.innerHTML = str;
+    return txt.value;
+}
+
 function copyCode(id) {
     const el = document.getElementById(id);
     const btn = el.closest('.code-block-wrapper').querySelector('.copy-btn');
@@ -84,7 +91,15 @@ function copyCode(id) {
 
 function buildPreviewContent(lang, code) {
     if (lang === 'html') {
-        return code;
+        const trimmed = (code || '').trim();
+        // If the snippet already looks like a full document, return as-is
+        if (/^<!doctype/i.test(trimmed) || /<html[\s>]/i.test(trimmed)) {
+            return code;
+        }
+        // Wrap partial HTML snippets in a minimal HTML document so the iframe renders correctly
+        return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="/">
+            <style>html,body{height:100%;margin:0;background:#fff;color:#111;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}</style>
+        </head><body>${code}</body></html>`;
     }
     if (lang === 'css') {
         return `<!DOCTYPE html><html><head><style>
@@ -174,7 +189,9 @@ function togglePreview(id) {
     }
 
     const lang = codeEl.className.replace('language-', '').toLowerCase();
-    const code = codeStore[id] || codeEl.innerText;
+    // Prefer raw stored code; fall back to DOM textContent and decode any entities
+    const raw = codeStore[id] || codeEl.textContent || codeEl.innerText || '';
+    const code = decodeHtmlEntities(raw);
     const content = buildPreviewContent(lang, code);
 
     const panel = document.createElement('div');
