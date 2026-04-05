@@ -1057,14 +1057,12 @@ function showTypingIndicator(label = 'Thinking...') {
 
 function needsSearch(text) {
     const t = text.trim();
-    // Skip very short inputs
     if (t.length < 8) return false;
-    // Skip if it looks like a pure code paste (lots of braces/semicolons and backticks)
+    // Skip pure code pastes
     const codeChars = (t.match(/[{};]/g) || []).length;
     if (codeChars > 10 && t.startsWith('`')) return false;
     // Skip if it's only a URL
     if (/^https?:\/\/\S+$/.test(t)) return false;
-    // Always search for everything else
     return true;
 }
 
@@ -1080,8 +1078,6 @@ function githubBlobToRaw(url) {
 async function fetchGithubFile(url) {
     try {
         const fullUrl = url.startsWith('http') ? url : 'https://' + url;
-        const rawUrl = githubBlobToRaw(fullUrl);
-        if (!rawUrl) return '';
         const resp = await fetch('/github-fetch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1092,32 +1088,123 @@ async function fetchGithubFile(url) {
     } catch { return ''; }
 }
 
-async function fetchSearchResults(query) {
+// ── Search panel UI ────────────────────────────────────────────────────────
+const SVG_SEARCH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/></svg>`;
+const SVG_LINK_SM = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path fill-rule="evenodd" d="M8.914 6.025a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95l-2 2a3.5 3.5 0 0 1-4.95-4.95l1.17-1.17a.75.75 0 0 1 1.06 1.06L3.084 9.086a2 2 0 0 0 2.829 2.828l2-2a2 2 0 0 0 0-2.828.75.75 0 0 1 0-1.06Zm-3.84 1.96a.75.75 0 0 1-1.061 0 3.5 3.5 0 0 1 0-4.95l2-2a3.5 3.5 0 0 1 4.95 4.95l-1.17 1.17a.75.75 0 1 1-1.06-1.06l1.17-1.17a2 2 0 0 0-2.829-2.828l-2 2a2 2 0 0 0 0 2.828.75.75 0 0 1 0 1.06Z" clip-rule="evenodd"/></svg>`;
+const SVG_GH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>`;
+
+function createSearchPanel(query) {
+    const panel = document.createElement('div');
+    panel.className = 'search-panel';
+
+    const header = document.createElement('button');
+    header.className = 'search-panel-header';
+    header.addEventListener('click', () => panel.classList.toggle('collapsed'));
+
+    const icon = document.createElement('span');
+    icon.className = 'search-panel-icon';
+    icon.innerHTML = SVG_SEARCH;
+
+    const statusEl = document.createElement('span');
+    statusEl.className = 'search-panel-status';
+    statusEl.textContent = `Searching: "${query.length > 50 ? query.slice(0, 50) + '…' : query}"`;
+
+    const chevron = document.createElement('span');
+    chevron.className = 'search-panel-chevron';
+    chevron.innerHTML = SVG.chevronDown;
+
+    header.appendChild(icon);
+    header.appendChild(statusEl);
+    header.appendChild(chevron);
+
+    const body = document.createElement('div');
+    body.className = 'search-panel-body';
+
+    panel.appendChild(header);
+    panel.appendChild(body);
+
+    return { el: panel, statusEl, body };
+}
+
+function addSearchResultItem(sp, result) {
+    const item = document.createElement('div');
+    item.className = 'search-result-item';
+
+    const icon = document.createElement('span');
+    icon.className = 'search-result-icon';
+    icon.innerHTML = SVG_LINK_SM;
+
+    const textDiv = document.createElement('div');
+    textDiv.className = 'search-result-text';
+
+    const title = document.createElement('div');
+    title.className = 'search-result-title';
+    title.textContent = result.title || result.url;
+
+    const urlEl = document.createElement('div');
+    urlEl.className = 'search-result-url';
+    try { urlEl.textContent = new URL(result.url).hostname + new URL(result.url).pathname; }
+    catch { urlEl.textContent = result.url; }
+
+    textDiv.appendChild(title);
+    textDiv.appendChild(urlEl);
+    item.appendChild(icon);
+    item.appendChild(textDiv);
+    sp.body.appendChild(item);
+    scrollToBottom();
+    return item;
+}
+
+function addGithubFetchItem(sp, url, done) {
+    const item = document.createElement('div');
+    item.className = 'search-github-item';
+    item.innerHTML = SVG_GH + `&nbsp;${done ? 'Fetched' : 'Fetching'}: <span style="opacity:0.8;margin-left:4px">${url.replace('https://github.com/', '')}</span>`;
+    sp.body.appendChild(item);
+    scrollToBottom();
+    return item;
+}
+
+function finalizeSearchPanel(sp, resultCount, githubCount) {
+    sp.el.classList.add('done');
+    sp.el.classList.add('collapsed');
+    const parts = [`Found ${resultCount} result${resultCount !== 1 ? 's' : ''}`];
+    if (githubCount > 0) parts.push(`fetched ${githubCount} GitHub file${githubCount !== 1 ? 's' : ''}`);
+    sp.statusEl.textContent = parts.join(' · ');
+}
+
+async function runSearchWithPanel(query, container) {
+    const sp = createSearchPanel(query);
+    container.appendChild(sp.el);
+    scrollToBottom();
+
+    let results = [];
+    let githubCount = 0;
+
     try {
-        console.debug('[DEBUG] fetchSearchResults query:', query);
         const resp = await fetch('/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query })
         });
         const data = await resp.json();
-        const results = data.results || [];
-        console.debug('[DEBUG] fetchSearchResults got', results.length, 'results');
+        results = data.results || [];
 
-        // Auto-fetch GitHub file content for any GitHub blob URLs in results
-        await Promise.all(results.map(async r => {
+        // Stream each result into the panel
+        for (const r of results) {
+            addSearchResultItem(sp, r);
+            // If result links to a GitHub blob, fetch the file
             if (r.url && GITHUB_BLOB_RE.test(r.url)) {
-                console.debug('[DEBUG] fetching GitHub file:', r.url);
+                addGithubFetchItem(sp, r.url, false);
                 r.github_content = await fetchGithubFile(r.url);
-                console.debug('[DEBUG] GitHub file fetched, len:', r.github_content ? r.github_content.length : 0);
+                githubCount++;
             }
-        }));
-
-        return results;
+        }
     } catch (e) {
-        console.debug('[DEBUG] fetchSearchResults error:', e);
-        return [];
+        console.debug('[DEBUG] runSearchWithPanel error:', e);
     }
+
+    finalizeSearchPanel(sp, results.length, githubCount);
+    return results;
 }
 
 function formatSearchContext(query, results) {
@@ -1223,13 +1310,11 @@ async function sendMessage(text) {
         removeTypingIndicator();
     }
 
-    // Web search step (before sending to AI)
+    // Web search step — shows real-time search panel before AI response
     let searchCtx = '';
     if (needsSearch(text)) {
-        showTypingIndicator('Searching the web...');
-        const results = await fetchSearchResults(text);
+        const results = await runSearchWithPanel(text, messagesContainer);
         searchCtx = formatSearchContext(text, results);
-        removeTypingIndicator();
     }
 
     const urlText = buildMessageWithURLContext(text);

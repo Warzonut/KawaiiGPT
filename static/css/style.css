@@ -1176,6 +1176,84 @@ textarea#userInput::-webkit-scrollbar-thumb {
     display: block;
 }
 
+/* ── Search panel (real-time search results) ── */
+.search-panel {
+    border: 1px solid rgba(96, 165, 250, 0.2);
+    border-radius: 8px;
+    margin: 6px 0 16px 46px;
+    overflow: hidden;
+    background: rgba(96, 165, 250, 0.04);
+    max-width: 72%;
+    animation: messageIn 0.25s ease;
+}
+
+.search-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.82em;
+    color: rgba(96, 165, 250, 0.75);
+    user-select: none;
+    transition: color 0.2s;
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+}
+
+.search-panel-header:hover { color: rgba(96, 165, 250, 1); }
+.search-panel-icon { display: flex; align-items: center; }
+.search-panel-status { flex: 1; }
+.search-panel-chevron { display: flex; align-items: center; transition: transform 0.2s; }
+.search-panel.collapsed .search-panel-chevron { transform: rotate(-90deg); }
+
+.search-panel-body {
+    max-height: 240px;
+    overflow-y: auto;
+    border-top: 1px solid rgba(96, 165, 250, 0.1);
+    transition: max-height 0.25s ease;
+}
+
+.search-panel.collapsed .search-panel-body {
+    max-height: 0;
+    overflow: hidden;
+    border-top: none;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    animation: srFadeIn 0.18s ease;
+}
+
+@keyframes srFadeIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.search-result-icon { flex-shrink: 0; margin-top: 2px; color: rgba(96,165,250,0.5); display: flex; }
+.search-result-text { flex: 1; min-width: 0; }
+.search-result-title { font-size: 0.8em; color: rgba(255,255,255,0.65); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-result-url { font-size: 0.72em; color: rgba(96,165,250,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+
+.search-github-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    font-size: 0.78em;
+    color: rgba(52, 211, 153, 0.7);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    animation: srFadeIn 0.18s ease;
+}
+
+.search-panel.done .search-panel-header { color: rgba(96,165,250,0.4); }
+
 /* Drag-to-reorder history */
 .history-drag-handle {
     display: flex;
