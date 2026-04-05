@@ -880,21 +880,58 @@ async function sendMessage(text) {
             return { thinkingText, mainText };
         }
 
-        function updateBubble(thinkingText, mainText) {
-            if (thinkingText) {
-                ensureThinkingBlock();
-                thinkingContent.innerHTML = renderMarkdown(thinkingText);
-            }
-            // Get or create the main response node
+        // Typewriter state — paces the main response text independent of chunk speed
+        let twTarget  = '';  // full text received so far
+        let twPos     = 0;   // chars revealed so far
+        let twTimer   = null;
+        let streamDone = false;
+
+        const TW_CHARS_PER_TICK = 6;   // chars revealed per tick
+        const TW_TICK_MS        = 14;  // ~70 chars/s — feels natural
+
+        function getOrCreateMainNode() {
             let mainNode = bubble.querySelector('.main-response');
             if (!mainNode) {
                 mainNode = document.createElement('div');
                 mainNode.className = 'main-response';
                 bubble.appendChild(mainNode);
             }
-            mainNode.innerHTML = mainText ? renderMarkdown(mainText) : '';
-            highlightCodeBlocks(bubble);
-            scrollToBottom();
+            return mainNode;
+        }
+
+        function typewriterTick() {
+            const mainNode = getOrCreateMainNode();
+            if (twPos < twTarget.length) {
+                twPos = Math.min(twPos + TW_CHARS_PER_TICK, twTarget.length);
+                mainNode.innerHTML = renderMarkdown(twTarget.slice(0, twPos));
+                scrollToBottom();
+            }
+            // Stop timer only when stream is finished and all chars are shown
+            if (twPos >= twTarget.length && streamDone) {
+                clearInterval(twTimer);
+                twTimer = null;
+                // Final render with full markdown + syntax highlighting
+                mainNode.innerHTML = renderMarkdown(twTarget);
+                highlightCodeBlocks(bubble);
+                scrollToBottom();
+            }
+        }
+
+        function startTypewriter() {
+            if (twTimer === null) {
+                twTimer = setInterval(typewriterTick, TW_TICK_MS);
+            }
+        }
+
+        function updateBubble(thinkingText, mainText) {
+            if (thinkingText) {
+                ensureThinkingBlock();
+                thinkingContent.innerHTML = renderMarkdown(thinkingText);
+            }
+            if (mainText && mainText !== twTarget) {
+                twTarget = mainText;
+                startTypewriter();
+            }
         }
 
         while (true) {
@@ -916,17 +953,26 @@ async function sendMessage(text) {
         }
 
         if (firstChunk) removeTypingIndicator();
+        streamDone = true;
+
+        // If no typewriter was started (no main content), clear immediately
+        if (twTimer === null && twTarget) {
+            typewriterTick();
+        }
+
+        // Wait for typewriter to finish before saving to history
+        await new Promise(resolve => {
+            if (twTimer === null) { resolve(); return; }
+            const check = setInterval(() => {
+                if (twTimer === null) { clearInterval(check); resolve(); }
+            }, 50);
+        });
 
         // Extract the clean content (everything after \x02, or everything stripped of \x01)
         const sepIdx = fullText.indexOf('\x02');
         const cleanText = sepIdx === -1
             ? fullText.replace(/\x01/g, '').trim()
             : fullText.slice(sepIdx + 1).trim();
-
-        if (chunkCount <= 1 && cleanText.length > 0) {
-            const mainNode = bubble.querySelector('.main-response') || bubble;
-            animateReveal(mainNode, cleanText);
-        }
 
         console.debug('[DEBUG] sendMessage complete', { chunkCount, totalLen: fullText.length });
 
