@@ -10,6 +10,101 @@ const chatTitle = document.getElementById('chatTitle');
 const chatHistoryList = document.getElementById('chatHistoryList');
 const noHistory = document.getElementById('noHistory');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+const urlBadgeBar = document.getElementById('urlBadgeBar');
+
+// ── URL detection & fetch ────────────────────────────────────────────────────
+const URL_DETECT_RE = /https?:\/\/[^\s<>"']+/gi;
+
+// Cache: url → { status: 'loading'|'ready'|'error', text: string }
+const urlFetchCache = new Map();
+
+function extractURLs(text) {
+    return [...new Set((text.match(URL_DETECT_RE) || []).map(u => u.replace(/[.,;!?)]+$/, '')))];
+}
+
+function renderURLBadges(urls) {
+    if (!urlBadgeBar) return;
+    urlBadgeBar.innerHTML = '';
+    if (urls.length === 0) {
+        urlBadgeBar.style.display = 'none';
+        return;
+    }
+    urlBadgeBar.style.display = 'flex';
+    urls.forEach(url => {
+        const entry = urlFetchCache.get(url) || { status: 'loading' };
+        const badge = document.createElement('div');
+        badge.className = 'url-badge ' + entry.status;
+        badge.dataset.url = url;
+
+        const icon = document.createElement('span');
+        icon.className = 'url-badge-icon';
+        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M6.22 8.72a.75.75 0 001.06 1.06l1.62-1.62A3.25 3.25 0 004.6 3.6L2.97 5.22A3.25 3.25 0 007.28 9.78l.44-.44a.75.75 0 00-1.06-1.06l-.44.44a1.75 1.75 0 11-2.47-2.47l1.62-1.62a1.75 1.75 0 012.61 2.33l-.7.72zM9.78 7.28a.75.75 0 00-1.06-1.06l-1.62 1.62A3.25 3.25 0 0011.4 12.4l1.62-1.62a3.25 3.25 0 00-4.31-4.18l-.44.44a.75.75 0 001.06 1.06l.44-.44a1.75 1.75 0 112.47 2.47L10.6 11.75a1.75 1.75 0 01-2.61-2.33l.7-.72z"/></svg>';
+
+        const label = document.createElement('span');
+        label.className = 'url-badge-label';
+        label.title = url;
+        try { label.textContent = new URL(url).hostname; } catch { label.textContent = url.slice(0, 40); }
+
+        const status = document.createElement('span');
+        status.className = 'url-badge-status';
+        status.textContent = entry.status === 'loading' ? 'fetching…' : entry.status === 'ready' ? 'read ✓' : 'error';
+
+        badge.appendChild(icon);
+        badge.appendChild(label);
+        badge.appendChild(status);
+        urlBadgeBar.appendChild(badge);
+    });
+}
+
+async function fetchAndCacheURL(url) {
+    if (urlFetchCache.has(url)) return;
+    urlFetchCache.set(url, { status: 'loading', text: '' });
+    try {
+        const resp = await fetch('/fetch-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        urlFetchCache.set(url, { status: 'ready', text: data.text || '' });
+    } catch (e) {
+        urlFetchCache.set(url, { status: 'error', text: '' });
+    }
+}
+
+let urlDebounceTimer = null;
+function onInputURLDetect() {
+    clearTimeout(urlDebounceTimer);
+    urlDebounceTimer = setTimeout(async () => {
+        const urls = extractURLs(userInput.value);
+        renderURLBadges(urls);
+        for (const url of urls) {
+            if (!urlFetchCache.has(url)) {
+                await fetchAndCacheURL(url);
+                renderURLBadges(extractURLs(userInput.value));
+            }
+        }
+    }, 400);
+}
+
+function buildMessageWithURLContext(text) {
+    const urls = extractURLs(text);
+    const chunks = [];
+    for (const url of urls) {
+        const entry = urlFetchCache.get(url);
+        if (entry && entry.status === 'ready' && entry.text) {
+            chunks.push(`[Content fetched from ${url}]\n${entry.text}\n[End of fetched content]`);
+        }
+    }
+    if (chunks.length === 0) return text;
+    return text + '\n\n' + chunks.join('\n\n');
+}
+
+function clearURLBadges() {
+    if (urlBadgeBar) { urlBadgeBar.innerHTML = ''; urlBadgeBar.style.display = 'none'; }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'kawaiiGPT_chats';
 const codeStore = {};
@@ -983,8 +1078,9 @@ async function sendMessage(text) {
     sendBtn.disabled = true;
     userInput.value = '';
     autoResize();
+    clearURLBadges();
 
-    const userText = getModePrefix() + text;
+    const userText = getModePrefix() + buildMessageWithURLContext(text);
 
     conversationHistory.push({ role: 'user', content: userText });
     displayMessages.push({ role: 'user', content: text });
@@ -1238,7 +1334,7 @@ userInput.addEventListener('keydown', (e) => {
     }
 });
 
-userInput.addEventListener('input', autoResize);
+userInput.addEventListener('input', () => { autoResize(); onInputURLDetect(); });
 
 newChatBtn.addEventListener('click', () => {
     startNewChat();

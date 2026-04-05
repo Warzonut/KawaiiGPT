@@ -1,6 +1,11 @@
 import os
+import re
 import uuid
 import traceback
+import requests as http_requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from bs4 import BeautifulSoup
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from openai import OpenAI
 
@@ -57,6 +62,46 @@ Your personality is:
 - Do NOT start coding when a user is saying something
 
 You can handle any programming language or technology stack."""
+
+URL_RE = re.compile(r'https?://[^\s<>"\']+', re.IGNORECASE)
+FETCH_TIMEOUT = 10  # seconds
+FETCH_MAX_CHARS = 8000  # max content chars to inject into context
+
+def fetch_url_text(url: str) -> str:
+    """Fetch a URL and return cleaned plain text (up to FETCH_MAX_CHARS)."""
+    try:
+        resp = http_requests.get(
+            url,
+            timeout=FETCH_TIMEOUT,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; KawaiiGPT/1.0)"},
+            allow_redirects=True,
+            verify=False
+        )
+        resp.raise_for_status()
+        ct = resp.headers.get("Content-Type", "")
+        if "text/html" in ct or "application/xhtml" in ct:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            # Remove script/style/nav/footer noise
+            for tag in soup(["script", "style", "nav", "footer", "header", "noscript", "iframe", "svg"]):
+                tag.decompose()
+            text = soup.get_text(separator="\n", strip=True)
+            # Collapse blank lines
+            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            text = "\n".join(lines)
+        else:
+            # Plain text / JSON / other
+            text = resp.text
+        return text[:FETCH_MAX_CHARS]
+    except Exception as exc:
+        return f"[Could not fetch URL: {exc}]"
+
+@app.route("/fetch-url", methods=["POST"])
+def fetch_url_route():
+    url = (request.json or {}).get("url", "")
+    if not url or not URL_RE.match(url):
+        return jsonify({"error": "Invalid URL"}), 400
+    text = fetch_url_text(url)
+    return jsonify({"text": text, "url": url})
 
 # In-memory store for preview HTML blobs (keyed by UUID)
 _preview_store: dict[str, str] = {}

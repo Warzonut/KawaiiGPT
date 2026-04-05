@@ -799,6 +799,72 @@ textarea#userInput::-webkit-scrollbar-thumb {
     color: var(--accent);
 }
 
+/* ── URL detection badge bar ── */
+.url-badge-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.url-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 20px;
+    padding: 4px 10px 4px 8px;
+    font-size: 12px;
+    color: #a5b4fc;
+    max-width: 340px;
+    animation: badgeFadeIn 0.2s ease;
+}
+
+.url-badge-icon {
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.url-badge-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.url-badge-status {
+    flex-shrink: 0;
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+.url-badge.loading .url-badge-status {
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.url-badge.ready {
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(52, 211, 153, 0.08);
+    color: #6ee7b7;
+}
+
+.url-badge.error {
+    border-color: rgba(248, 113, 113, 0.35);
+    background: rgba(248, 113, 113, 0.08);
+    color: #fca5a5;
+}
+
+@keyframes badgeFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50%       { opacity: 1; }
+}
+
 /* ── Message actions (retry etc.) ── */
 .message-actions {
     display: flex;
