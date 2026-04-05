@@ -25,7 +25,8 @@ else:
 
 # Max tokens for completions (configurable via env var). Default: model limit.
 # Note: many models enforce a hard upper limit; setting this does not bypass model limits.
-DEFAULT_MODEL_MAX_TOKENS = 1000000
+# Qwen models support up to 1M output tokens; OpenRouter models vary — default to 32,768.
+DEFAULT_MODEL_MAX_TOKENS = 1000000 if PROVIDER == "qwen" else 32768
 MODEL_MAX_TOKENS = int(os.environ.get("MODEL_MAX_TOKENS", str(DEFAULT_MODEL_MAX_TOKENS)))
 MAX_TOKENS = min(int(os.environ.get("MAX_TOKENS", str(MODEL_MAX_TOKENS))), MODEL_MAX_TOKENS)
 
