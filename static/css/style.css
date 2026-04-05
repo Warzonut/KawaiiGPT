@@ -334,10 +334,11 @@ body {
     border-color: var(--border-accent);
 }
 
-.feature-card span {
-    font-size: 28px;
-    display: block;
+.feature-icon {
+    display: flex;
+    justify-content: center;
     margin-bottom: 8px;
+    color: var(--accent);
 }
 
 .feature-card h3 {
@@ -804,6 +805,9 @@ textarea#userInput::-webkit-scrollbar-thumb {
 }
 
 .retry-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     background: transparent;
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -818,6 +822,46 @@ textarea#userInput::-webkit-scrollbar-thumb {
     background: var(--bg-card);
     border-color: var(--border-accent);
     color: var(--accent);
+}
+
+/* ── User message edit/delete actions ── */
+.user-message-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    align-self: flex-end;
+}
+
+.message.user:hover .user-message-actions {
+    opacity: 1;
+}
+
+.user-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.user-action-btn:hover {
+    background: var(--bg-card);
+    border-color: var(--border-accent);
+    color: var(--accent);
+}
+
+.user-action-btn.delete:hover {
+    border-color: rgba(248, 113, 113, 0.5);
+    color: #f87171;
 }
 
 /* ── Message timestamp ── */
@@ -910,7 +954,8 @@ textarea#userInput::-webkit-scrollbar-thumb {
 }
 
 .history-item-icon {
-    font-size: 12px;
+    display: flex;
+    align-items: center;
     flex-shrink: 0;
     color: var(--text-muted);
 }
@@ -941,13 +986,14 @@ textarea#userInput::-webkit-scrollbar-thumb {
 }
 
 .history-delete-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
     border: none;
     color: transparent;
-    font-size: 16px;
-    line-height: 1;
     cursor: pointer;
-    padding: 0 3px;
+    padding: 2px;
     border-radius: 4px;
     flex-shrink: 0;
     transition: all 0.2s;

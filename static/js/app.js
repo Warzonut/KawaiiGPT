@@ -22,10 +22,18 @@ let displayMessages = [];
 let isStreaming = false;
 let currentMode = 'chat';
 let currentChatId = generateId();
-// Message queue for sends initiated while a response is streaming
 let messageQueue = [];
 let editingQueueId = null;
 const originalSendBtnHTML = sendBtn ? sendBtn.innerHTML : null;
+
+// SVG icons
+const SVG = {
+    chat: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902.848.137 1.705.248 2.57.331v3.443a.75.75 0 001.28.53l3.58-3.579a.78.78 0 01.527-.224 41.202 41.202 0 005.183-.5c1.437-.232 2.43-1.49 2.43-2.903V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2zm0 7a1 1 0 100-2 1 1 0 000 2zM6 9a1 1 0 11-2 0 1 1 0 012 0zm7 1a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>`,
+    edit: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg>`,
+    trash: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" /></svg>`,
+    close: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M5.28 4.22a.75.75 0 00-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 101.06 1.06L8 9.06l2.72 2.72a.75.75 0 101.06-1.06L9.06 8l2.72-2.72a.75.75 0 00-1.06-1.06L8 6.94 5.28 4.22z" /></svg>`,
+    retry: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd" /></svg>`,
+};
 
 marked.setOptions({
     breaks: true,
@@ -42,7 +50,7 @@ renderer.code = function(token) {
     codeStore[id] = code;
     const hasPreview = PREVIEW_LANGS.has(lang);
     const previewBtn = hasPreview
-        ? `<button class="preview-btn" onclick="togglePreview('${id}')">▶ Preview</button>`
+        ? `<button class="preview-btn" onclick="togglePreview('${id}')">&#9654; Preview</button>`
         : '';
     return `
         <div class="code-block-wrapper">
@@ -74,7 +82,6 @@ function escapeHtml(text) {
 }
 
 function decodeHtmlEntities(str) {
-    // Decode HTML entities to raw characters (e.g. &lt; -> <)
     const txt = document.createElement('textarea');
     txt.innerHTML = str;
     return txt.value;
@@ -171,18 +178,44 @@ function processQueue() {
     const next = messageQueue.shift();
     console.debug('[DEBUG] processQueue dequeue', { id: next.id, preview: next.text.slice(0, 120) });
     renderQueueUI();
-    // small delay to allow UI updates/animations
     setTimeout(() => sendMessage(next.text), 120);
 }
+
+// ── Edit / Delete user messages ──────────────────────────────────────────────
+
+function removeUserMessageAndAfter(msgDiv, restoreToInput) {
+    if (isStreaming) return;
+    const allMsgs = [...messagesContainer.querySelectorAll('.message')];
+    const idx = allMsgs.indexOf(msgDiv);
+    if (idx < 0) return;
+
+    const originalText = displayMessages[idx] ? displayMessages[idx].content : '';
+
+    displayMessages = displayMessages.slice(0, idx);
+    conversationHistory = conversationHistory.slice(0, idx);
+    allMsgs.slice(idx).forEach(el => el.remove());
+
+    if (displayMessages.length === 0) {
+        restoreWelcomeScreen();
+    }
+
+    if (restoreToInput) {
+        userInput.value = originalText;
+        userInput.focus();
+        autoResize();
+    }
+
+    saveCurrentChat();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function buildPreviewContent(lang, code) {
     if (lang === 'html') {
         const trimmed = (code || '').trim();
-        // If the snippet already looks like a full document, return as-is
         if (/^<!doctype/i.test(trimmed) || /<html[\s>]/i.test(trimmed)) {
             return code;
         }
-        // Wrap partial HTML snippets in a minimal HTML document so the iframe renders correctly
         return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="/">
             <style>html,body{height:100%;margin:0;background:#fff;color:#111;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}</style>
         </head><body>${code}</body></html>`;
@@ -206,7 +239,7 @@ function buildPreviewContent(lang, code) {
             .err { color:#f87171; } .log { color:#f0f0f5; } .info { color:#60a5fa; } .warn { color:#fb923c; }
             .label { color:#a78bfa; font-size:11px; margin-bottom:8px; }
         </style></head><body>
-            <div class="label">▶ Console Output</div>
+            <div class="label">&#9654; Console Output</div>
             <div id="output"></div>
             <script>
                 const _o = document.getElementById('output');
@@ -232,7 +265,7 @@ function buildPreviewContent(lang, code) {
             return `<!DOCTYPE html><html><head><style>
                 body{background:#0f0f13;color:#f0f0f5;font-family:monospace;padding:16px;margin:0;font-size:13px;line-height:1.6;}
                 .label{color:#a78bfa;font-size:11px;margin-bottom:8px;}
-            </style></head><body><div class="label">▶ JSON Preview</div><pre>${formatted}</pre></body></html>`;
+            </style></head><body><div class="label">&#9654; JSON Preview</div><pre>${formatted}</pre></body></html>`;
         } catch (e) {
             return `<!DOCTYPE html><html><body style="background:#0f0f13;color:#f87171;padding:16px;font-family:monospace;">Invalid JSON: ${e.message}</body></html>`;
         }
@@ -243,7 +276,7 @@ function buildPreviewContent(lang, code) {
             .note{color:#a78bfa;font-size:11px;padding:8px 12px;border:1px solid rgba(167,139,250,0.3);border-radius:6px;margin-bottom:12px;}
             pre{margin:0;white-space:pre-wrap;}
         </style></head><body>
-            <div class="note">⚠ Python runs server-side — showing read-only preview</div>
+            <div class="note">Python runs server-side — showing read-only preview</div>
             <pre>${escapeHtml(code)}</pre>
         </body></html>`;
     }
@@ -253,7 +286,7 @@ function buildPreviewContent(lang, code) {
             .note{color:#60a5fa;font-size:11px;padding:8px 12px;border:1px solid rgba(96,165,250,0.3);border-radius:6px;margin-bottom:12px;}
             pre{margin:0;white-space:pre-wrap;}
         </style></head><body>
-            <div class="note">⚠ TypeScript requires compilation — showing read-only preview</div>
+            <div class="note">TypeScript requires compilation — showing read-only preview</div>
             <pre>${escapeHtml(code)}</pre>
         </body></html>`;
     }
@@ -270,12 +303,11 @@ function togglePreview(id) {
     if (existing) {
         const isHidden = existing.style.display === 'none';
         existing.style.display = isHidden ? 'block' : 'none';
-        btn.textContent = isHidden ? '▼ Hide' : '▶ Preview';
+        btn.textContent = isHidden ? '&#9660; Hide' : '&#9654; Preview';
         return;
     }
 
     const lang = codeEl.className.replace('language-', '').toLowerCase();
-    // Prefer raw stored code; fall back to DOM textContent and decode any entities
     const raw = codeStore[id] || codeEl.textContent || codeEl.innerText || '';
     const code = decodeHtmlEntities(raw);
     const content = buildPreviewContent(lang, code);
@@ -287,7 +319,7 @@ function togglePreview(id) {
     panelHeader.className = 'preview-panel-header';
     panelHeader.innerHTML = `
         <span class="preview-panel-title">Preview · ${lang.toUpperCase()}</span>
-        <button class="preview-close-btn" onclick="togglePreview('${id}')">✕ Close</button>
+        <button class="preview-close-btn" onclick="togglePreview('${id}')">&#10005; Close</button>
     `;
 
     const iframe = document.createElement('iframe');
@@ -297,13 +329,12 @@ function togglePreview(id) {
     panel.appendChild(iframe);
     wrapper.appendChild(panel);
 
-    // Write after appending to DOM so contentDocument is accessible
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open();
     doc.write(content);
     doc.close();
 
-    btn.textContent = '▼ Hide';
+    btn.textContent = '&#9660; Hide';
 }
 
 function addRetryButton(msgDiv) {
@@ -313,7 +344,7 @@ function addRetryButton(msgDiv) {
     actions.className = 'message-actions';
     const btn = document.createElement('button');
     btn.className = 'retry-btn';
-    btn.innerHTML = '↺ Retry';
+    btn.innerHTML = SVG.retry + ' Retry';
     btn.addEventListener('click', () => retryLastResponse(msgDiv));
     actions.appendChild(btn);
     contentDiv.appendChild(actions);
@@ -323,11 +354,8 @@ async function retryLastResponse(msgDiv) {
     console.debug('[DEBUG] retryLastResponse invoked', { isStreaming });
     if (isStreaming) return;
 
-    // Drop the last bot turn from both histories
     conversationHistory.pop();
     displayMessages.pop();
-
-    // Remove the old bot message from the DOM
     msgDiv.remove();
 
     isStreaming = true;
@@ -335,10 +363,7 @@ async function retryLastResponse(msgDiv) {
     showTypingIndicator();
 
     try {
-        const maxTokensEl = document.getElementById('maxTokensInput');
-        const maxTokensVal = maxTokensEl ? parseInt(maxTokensEl.value, 10) : undefined;
         const payload = { messages: conversationHistory };
-        if (!isNaN(maxTokensVal) && maxTokensVal > 0) payload.max_tokens = maxTokensVal;
 
         const response = await fetch('/chat', {
             method: 'POST',
@@ -352,15 +377,12 @@ async function retryLastResponse(msgDiv) {
         }
 
         console.debug('[DEBUG] /chat response', { status: response.status });
-        const eff = response.headers.get('X-Effective-Max-Tokens');
-        if (eff) console.debug('[DEBUG] X-Effective-Max-Tokens', eff);
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = '';
         let chunkCount = 0;
 
-        // create a placeholder bot message so the UI shows progress
         const { bubble, contentDiv } = addMessage('bot', 'Thinking...');
         const newMsgDiv = contentDiv.closest('.message');
         let firstChunk = true;
@@ -373,7 +395,6 @@ async function retryLastResponse(msgDiv) {
             fullText += chunk;
             console.debug('[DEBUG] retry chunk', { chunkIndex: chunkCount, len: chunk.length, preview: chunk.slice(0,120) });
             if (firstChunk) {
-                // remove the typing indicator once the first token arrives
                 removeTypingIndicator();
                 firstChunk = false;
             }
@@ -384,7 +405,6 @@ async function retryLastResponse(msgDiv) {
 
         if (firstChunk) removeTypingIndicator();
 
-        // If the server returned a single large chunk, animate reveal to feel like typing
         if (chunkCount <= 1 && fullText.length > 0) {
             animateReveal(bubble, fullText);
         }
@@ -420,14 +440,13 @@ function highlightCodeBlocks(container) {
 }
 
 function animateReveal(bubble, text, speed = 20) {
-    // Faster progressive reveal: adapt steps to text length so large responses reveal quickly
     bubble.innerHTML = '';
     if (!text) return;
-    const minDuration = 120; // ms
-    const maxDuration = 2000; // ms
-    let targetDuration = 500; // default target reveal duration
+    const minDuration = 120;
+    const maxDuration = 2000;
+    let targetDuration = 500;
     targetDuration = Math.max(minDuration, Math.min(maxDuration, targetDuration));
-    const frameMs = 16; // ~60fps
+    const frameMs = 16;
     const steps = Math.max(2, Math.round(targetDuration / frameMs));
     const stepSize = Math.max(1, Math.ceil(text.length / steps));
     let i = 0;
@@ -504,15 +523,15 @@ function renderHistoryList() {
         const item = document.createElement('div');
         item.className = 'history-item' + (chat.id === currentChatId ? ' active' : '');
         item.innerHTML = `
-            <span class="history-item-icon">💬</span>
+            <span class="history-item-icon">${SVG.chat}</span>
             <div class="history-item-info">
                 <span class="history-item-title">${escapeHtml(chat.title)}</span>
                 <span class="history-item-time">${formatTimeAgo(chat.timestamp)}</span>
             </div>
-            <button class="history-delete-btn" title="Delete">×</button>
+            <button class="history-delete-btn" title="Delete">${SVG.close}</button>
         `;
         item.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('history-delete-btn')) {
+            if (!e.target.closest('.history-delete-btn')) {
                 loadChat(chat.id);
             }
         });
@@ -579,6 +598,36 @@ function hideWelcome() {
     }
 }
 
+function restoreWelcomeScreen() {
+    if (messagesContainer.querySelector('.welcome-screen')) return;
+    const ws = document.createElement('div');
+    ws.className = 'welcome-screen';
+    ws.id = 'welcomeScreen';
+    ws.innerHTML = `
+        <div class="welcome-logo">✦</div>
+        <h2>Welcome to KawaiiGPT</h2>
+        <p>Your AI chatbot and code writing assistant. Ask me anything or pick a quick prompt to get started!</p>
+        <div class="welcome-features">
+            <div class="feature-card">
+                <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path fill-rule="evenodd" d="M4.804 21.644A6.707 6.707 0 006 21.75a6.721 6.721 0 003.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 01-.814 1.686.75.75 0 00.44 1.223 15.03 15.03 0 003-.165z" clip-rule="evenodd" /></svg></span>
+                <h3>Smart Chat</h3>
+                <p>Natural conversation with context memory</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path fill-rule="evenodd" d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm14.25 6a.75.75 0 01-.22.53l-2.25 2.25a.75.75 0 11-1.06-1.06L15.44 12l-1.72-1.72a.75.75 0 111.06-1.06l2.25 2.25c.141.14.22.331.22.53zm-10.28-.53a.75.75 0 000 1.06l2.25 2.25a.75.75 0 101.06-1.06L8.56 12l1.72-1.72a.75.75 0 10-1.06-1.06L7.97 11.47a.75.75 0 00-.22.53z" clip-rule="evenodd" /></svg></span>
+                <h3>Code Writer</h3>
+                <p>Generate clean, commented code in any language</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clip-rule="evenodd" /></svg></span>
+                <h3>Code Review</h3>
+                <p>Debug and improve your existing code</p>
+            </div>
+        </div>
+    `;
+    messagesContainer.appendChild(ws);
+}
+
 function addMessage(role, content) {
     hideWelcome();
 
@@ -607,6 +656,29 @@ function addMessage(role, content) {
     meta.textContent = formatTime(new Date());
 
     contentDiv.appendChild(bubble);
+
+    // Edit / delete actions for user messages
+    if (role === 'user') {
+        const actions = document.createElement('div');
+        actions.className = 'user-message-actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'user-action-btn';
+        editBtn.title = 'Edit message';
+        editBtn.innerHTML = SVG.edit + ' Edit';
+        editBtn.addEventListener('click', () => removeUserMessageAndAfter(msgDiv, true));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'user-action-btn delete';
+        deleteBtn.title = 'Delete message';
+        deleteBtn.innerHTML = SVG.trash + ' Delete';
+        deleteBtn.addEventListener('click', () => removeUserMessageAndAfter(msgDiv, false));
+
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+        contentDiv.appendChild(actions);
+    }
+
     contentDiv.appendChild(meta);
     msgDiv.appendChild(avatar);
     msgDiv.appendChild(contentDiv);
@@ -618,7 +690,6 @@ function addMessage(role, content) {
 }
 
 function showTypingIndicator() {
-    // ensure only one typing indicator exists
     removeTypingIndicator();
 
     const indicator = document.createElement('div');
@@ -683,11 +754,7 @@ async function sendMessage(text) {
     showTypingIndicator();
 
     try {
-        const maxTokensEl = document.getElementById('maxTokensInput');
-        const maxTokensVal = maxTokensEl ? parseInt(maxTokensEl.value, 10) : undefined;
-
         const payload = { messages: conversationHistory };
-        if (!isNaN(maxTokensVal) && maxTokensVal > 0) payload.max_tokens = maxTokensVal;
         console.debug('[DEBUG] sending /chat payload', payload);
 
         const response = await fetch('/chat', {
@@ -697,8 +764,6 @@ async function sendMessage(text) {
         });
 
         console.debug('[DEBUG] /chat response', { status: response.status });
-        const eff = response.headers.get('X-Effective-Max-Tokens');
-        if (eff) console.debug('[DEBUG] X-Effective-Max-Tokens', eff);
 
         if (!response.ok) {
             removeTypingIndicator();
@@ -710,7 +775,6 @@ async function sendMessage(text) {
         let fullText = '';
         let chunkCount = 0;
 
-        // create a placeholder bot message so the UI shows progress
         const { bubble, contentDiv } = addMessage('bot', 'Thinking...');
         let firstChunk = true;
 
@@ -772,39 +836,12 @@ function clearChatUI() {
     displayMessages = [];
     chatTitle.textContent = 'KawaiiGPT';
     messagesContainer.innerHTML = '';
-
-    const welcome = document.createElement('div');
-    welcome.className = 'welcome-screen';
-    welcome.id = 'welcomeScreen';
-    welcome.innerHTML = `
-        <div class="welcome-logo">✦</div>
-        <h2>Welcome to KawaiiGPT</h2>
-        <p>Your AI chatbot and code writing assistant. Ask me anything or pick a quick prompt to get started!</p>
-        <div class="welcome-features">
-            <div class="feature-card">
-                <span>💬</span>
-                <h3>Smart Chat</h3>
-                <p>Natural conversation with context memory</p>
-            </div>
-            <div class="feature-card">
-                <span>💻</span>
-                <h3>Code Writer</h3>
-                <p>Generate clean, commented code in any language</p>
-            </div>
-            <div class="feature-card">
-                <span>🔍</span>
-                <h3>Code Review</h3>
-                <p>Debug and improve your existing code</p>
-            </div>
-        </div>
-    `;
-    messagesContainer.appendChild(welcome);
+    restoreWelcomeScreen();
 }
 
 sendBtn.addEventListener('click', () => {
     const text = userInput.value.trim();
     if (!text) return;
-    // If we're editing a queued message, update it instead of sending
     if (editingQueueId) {
         const q = messageQueue.find(x => x.id === editingQueueId);
         if (q) {
@@ -819,7 +856,6 @@ sendBtn.addEventListener('click', () => {
         return;
     }
 
-    // If a response is currently streaming, enqueue instead of sending immediately
     if (isStreaming) {
         enqueueMessage(text);
         userInput.value = '';
