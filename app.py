@@ -1,4 +1,5 @@
 import os
+import uuid
 import traceback
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from openai import OpenAI
@@ -56,6 +57,21 @@ Your personality is:
 - Do NOT start coding when a user is saying something
 
 You can handle any programming language or technology stack."""
+
+# In-memory store for preview HTML blobs (keyed by UUID)
+_preview_store: dict[str, str] = {}
+
+@app.route("/preview", methods=["POST"])
+def store_preview():
+    content = (request.json or {}).get("content", "")
+    pid = str(uuid.uuid4())
+    _preview_store[pid] = content
+    return jsonify({"url": f"/preview/{pid}"})
+
+@app.route("/preview/<pid>")
+def serve_preview(pid):
+    content = _preview_store.get(pid, "<h1>Preview not found</h1>")
+    return Response(content, mimetype="text/html")
 
 @app.route("/")
 def index():

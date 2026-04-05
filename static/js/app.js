@@ -355,6 +355,71 @@ function buildPreviewContent(lang, code) {
     return `<!DOCTYPE html><html><body style="background:#0f0f13;color:#f0f0f5;padding:16px;font-family:monospace;">${escapeHtml(code)}</body></html>`;
 }
 
+// Collect every code block within the same message bubble as codeEl
+function gatherMessageBlocks(codeEl) {
+    const bubble = codeEl.closest('.message-content') || codeEl.closest('.message') || document.body;
+    const blocks = { html: '', css: '', js: '', json: '', python: '', typescript: '' };
+    bubble.querySelectorAll('code[id]').forEach(el => {
+        const lang = el.className.replace('language-', '').toLowerCase();
+        const raw = codeStore[el.id] || el.textContent || '';
+        const code = decodeHtmlEntities(raw);
+        if (lang === 'html')                          blocks.html += code;
+        else if (lang === 'css')                      blocks.css  += '\n' + code;
+        else if (lang === 'javascript' || lang === 'js') blocks.js += '\n' + code;
+        else if (lang === 'json')                     blocks.json  = code;
+        else if (lang === 'python' || lang === 'py')  blocks.python = code;
+        else if (lang === 'typescript' || lang === 'ts') blocks.typescript = code;
+    });
+    return blocks;
+}
+
+// Build a merged HTML page from multiple blocks
+function buildMergedContent(blocks) {
+    const { html, css, js, json, python, typescript } = blocks;
+
+    if (html) {
+        const isFullDoc = /<!doctype/i.test(html) || /<html[\s>]/i.test(html);
+        if (isFullDoc) {
+            // Inject extra CSS/JS into a complete HTML document
+            let doc = html;
+            if (css)  doc = doc.replace('</head>', `<style>${css}</style>\n</head>`);
+            if (js)   doc = doc.replace('</body>', `<script>\n${js}\n<\/script>\n</body>`);
+            return doc;
+        }
+        // Partial HTML fragment
+        return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>html,body{height:100%;margin:0;background:#fff;color:#111;font-family:system-ui,sans-serif}${css}</style>
+</head><body>${html}<script>\n${js}\n<\/script></body></html>`;
+    }
+    if (css && js) {
+        return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>body{font-family:sans-serif;padding:24px;background:#fff;}${css}</style>
+</head><body>
+<h1>CSS + JS Preview</h1><p>Paragraph</p><button>Button</button>
+<script>\n${js}\n<\/script></body></html>`;
+    }
+    if (css)  return buildPreviewContent('css', css);
+    if (js)   return buildPreviewContent('javascript', js);
+    if (json) return buildPreviewContent('json', json);
+    if (python) return buildPreviewContent('python', python);
+    if (typescript) return buildPreviewContent('typescript', typescript);
+    return null;
+}
+
+async function loadPreviewInIframe(iframe, content) {
+    try {
+        const resp = await fetch('/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        });
+        const { url } = await resp.json();
+        iframe.src = url;
+    } catch (e) {
+        iframe.srcdoc = content; // fallback
+    }
+}
+
 function togglePreview(id) {
     const codeEl = document.getElementById(id);
     if (!codeEl) return;
@@ -369,10 +434,16 @@ function togglePreview(id) {
         return;
     }
 
-    const lang = codeEl.className.replace('language-', '').toLowerCase();
-    const raw = codeStore[id] || codeEl.textContent || codeEl.innerText || '';
-    const code = decodeHtmlEntities(raw);
-    const content = buildPreviewContent(lang, code);
+    // Gather all blocks from this message and build merged content
+    const blocks = gatherMessageBlocks(codeEl);
+    const content = buildMergedContent(blocks) || buildPreviewContent(
+        codeEl.className.replace('language-', '').toLowerCase(),
+        decodeHtmlEntities(codeStore[id] || codeEl.textContent || '')
+    );
+
+    const hasMultiple = Object.values(blocks).filter(Boolean).length > 1;
+    const lang = codeEl.className.replace('language-', '').toLowerCase().toUpperCase();
+    const title = hasMultiple ? 'Merged Preview' : `Preview · ${lang}`;
 
     const panel = document.createElement('div');
     panel.className = 'preview-panel';
@@ -380,19 +451,18 @@ function togglePreview(id) {
     const panelHeader = document.createElement('div');
     panelHeader.className = 'preview-panel-header';
     panelHeader.innerHTML = `
-        <span class="preview-panel-title">Preview · ${lang.toUpperCase()}</span>
+        <span class="preview-panel-title">${title}</span>
         <button class="preview-close-btn" onclick="togglePreview('${id}')">${SVG_CLOSE} Close</button>
     `;
 
     const iframe = document.createElement('iframe');
     iframe.className = 'preview-iframe';
-    iframe.srcdoc = content;
-    iframe.sandbox = 'allow-scripts allow-same-origin';
 
     panel.appendChild(panelHeader);
     panel.appendChild(iframe);
     wrapper.appendChild(panel);
 
+    loadPreviewInIframe(iframe, content);
     btn.innerHTML = SVG_CHEVRON_DOWN + ' Hide';
 }
 
