@@ -140,6 +140,7 @@ let conversationHistory = [];
 let displayMessages = [];
 let isStreaming = false;
 let currentMode = 'chat';
+let searchEnabled = localStorage.getItem('searchEnabled') !== 'false';
 let currentChatId = generateId();
 let messageQueue = [];
 let editingQueueId = null;
@@ -1056,6 +1057,7 @@ function showTypingIndicator(label = 'Thinking...') {
 // ── Web search helpers ────────────────────────────────────────────────────────
 
 function needsSearch(text) {
+    if (!searchEnabled) return false;
     const t = text.trim();
     if (t.length < 8) return false;
     // Skip pure code pastes
@@ -1576,6 +1578,27 @@ userInput.addEventListener('keydown', (e) => {
 });
 
 userInput.addEventListener('input', () => { autoResize(); onInputURLDetect(); });
+
+// ── Search toggle ──────────────────────────────────────────────────────────
+const searchToggleBtn = document.getElementById('searchToggle');
+const searchToggleRow = document.getElementById('searchToggleRow');
+
+function applySearchToggle() {
+    if (searchToggleBtn) {
+        searchToggleBtn.setAttribute('aria-checked', searchEnabled ? 'true' : 'false');
+    }
+}
+
+function toggleSearch() {
+    searchEnabled = !searchEnabled;
+    localStorage.setItem('searchEnabled', searchEnabled ? 'true' : 'false');
+    applySearchToggle();
+}
+
+if (searchToggleBtn) searchToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleSearch(); });
+if (searchToggleRow) searchToggleRow.addEventListener('click', (e) => { if (e.target !== searchToggleBtn) toggleSearch(); });
+
+applySearchToggle();
 
 newChatBtn.addEventListener('click', () => {
     startNewChat();

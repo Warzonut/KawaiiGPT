@@ -141,6 +141,63 @@ body {
     color: var(--accent);
 }
 
+/* ── Settings toggle row ── */
+.setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 0;
+    cursor: pointer;
+}
+
+.setting-row-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.setting-row-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--text-muted);
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.2s;
+    outline: none;
+}
+
+.toggle-switch[aria-checked="true"] {
+    background: var(--accent);
+}
+
+.toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    pointer-events: none;
+}
+
+.toggle-switch[aria-checked="true"] .toggle-thumb {
+    transform: translateX(16px);
+}
+
 .quick-prompts {
     display: flex;
     flex-direction: column;
