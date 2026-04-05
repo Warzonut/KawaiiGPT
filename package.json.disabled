@@ -1,7 +1,7 @@
 {
   "name": "kawaiiGPT",
   "version": "1.0.0",
-  "description": "A kawaii-themed AI chatbot and code writing assistant powered by Mistral and Flask.",
+  "description": "A kawaii-themed AI chatbot and code writing assistant powered by OpenRouter and Flask.",
   "main": "app.py",
   "scripts": {
     "start": "python3 app.py",
@@ -10,7 +10,7 @@
   "keywords": [
     "ai",
     "chatbot",
-    "mistral",
+    "openrouter",
     "flask",
     "code-writer",
     "streaming"

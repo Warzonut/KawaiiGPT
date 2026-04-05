@@ -1,6 +1,6 @@
 # KawaiiGPT
 
-A kawaii-themed AI chatbot and code writer powered by Mistral and Flask.
+A kawaii-themed AI chatbot and code writer with pluggable model providers (Alibaba Qwen or OpenRouter) and Flask.
 
 ## Architecture
 
@@ -33,7 +33,12 @@ static/
 
 ## Environment Variables
 
-- `OPENAI_API_KEY` - Required. OpenAI API key for GPT-4o access.
+- `PROVIDER` - Optional. Choose `qwen` (default) or `openrouter`.
+- `QWEN_API_KEY` - Required when using `PROVIDER=qwen` (do NOT commit this key to source control).
+- `QWEN_API_URL` - Required when using `PROVIDER=qwen`. Set this to your Qwen REST endpoint (or set `AI_BASE_URL`).
+- `OPENROUTER_API_KEY` - Required when using `PROVIDER=openrouter`.
+- `AI_BASE_URL` - Optional base URL override for the selected provider.
+- `MODEL_NAME` - Optional. Defaults to `Qwen-Plus/Flash` for Qwen and `openrouter/hunter-alpha` for OpenRouter.
 
 ## Running
 
