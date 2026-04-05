@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # Provider selection: 'qwen' (Alibaba) or 'openrouter'
 PROVIDER = os.environ.get("PROVIDER", "qwen").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "qwen-turbo" if PROVIDER == "qwen" else "openrouter/aurora")
+MODEL_NAME = os.environ.get("MODEL_NAME", "qwen-turbo" if PROVIDER == "qwen" else "qwen/qwen3.6-plus:free")
 
 if PROVIDER == "qwen":
     # Expect the user to set QWEN_API_KEY and QWEN_API_URL (or AI_BASE_URL)
