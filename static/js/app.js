@@ -876,7 +876,7 @@ function switchToCodeMode() {
     currentMode = 'code';
 }
 
-function injectSwitchToCodeBtn(bubble) {
+function injectSwitchToCodeBtn(bubble, originalText) {
     if (bubble.querySelector('.switch-to-code-btn')) return;
     const btn = document.createElement('button');
     btn.className = 'switch-to-code-btn';
@@ -884,6 +884,8 @@ function injectSwitchToCodeBtn(bubble) {
     btn.addEventListener('click', () => {
         switchToCodeMode();
         btn.remove();
+        // Re-send the original request now that we're in Code Writer mode
+        sendMessage(originalText);
     });
     bubble.appendChild(btn);
 }
@@ -1075,7 +1077,7 @@ async function sendMessage(text) {
 
         // In chat mode, inject a switch button when user asked for code
         if (currentMode === 'chat' && isCodeRequest(text)) {
-            injectSwitchToCodeBtn(bubble);
+            injectSwitchToCodeBtn(bubble, text);
         }
 
     } catch (error) {
