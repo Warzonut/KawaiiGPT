@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # Provider selection: 'qwen' (Alibaba) or 'openrouter'
 PROVIDER = os.environ.get("PROVIDER", "qwen").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "NVIDIA-Nemotron-3-Super-120B-A12B" if PROVIDER == "qwen" else "openrouter/hunter-alpha")
+MODEL_NAME = os.environ.get("MODEL_NAME", "qwen-turbo" if PROVIDER == "qwen" else "nvidia/nemotron-3-super-120b-a12b:free")
 
 if PROVIDER == "qwen":
     # Expect the user to set QWEN_API_KEY and QWEN_API_URL (or AI_BASE_URL)
@@ -18,7 +18,7 @@ if PROVIDER == "qwen":
     client = OpenAI(api_key=QWEN_API_KEY, base_url=QWEN_API_URL)
 else:
     OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-    BASE_URL = os.environ.get("AI_BASE_URL", "https://api.openrouter.ai/v1")
+    BASE_URL = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api/v1")
     if not OPENROUTER_API_KEY:
         raise RuntimeError("Missing OPENROUTER_API_KEY")
     client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=BASE_URL)
