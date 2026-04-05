@@ -83,7 +83,9 @@ function createThinkingPanel() {
 }
 
 function updateThinkingText(tp, text) {
-    tp.textEl.textContent = text;
+    // Show only the last 3000 chars to avoid expensive DOM updates on very long thinking
+    const display = text.length > 3000 ? '\u2026' + text.slice(-3000) : text;
+    tp.textEl.textContent = display;
     // auto-scroll thinking body
     tp.body.scrollTop = tp.body.scrollHeight;
 }
@@ -527,7 +529,7 @@ async function retryLastResponse(msgDiv) {
         function rTwTick() {
             const mn = rGetMain();
             if (rTwPos < rTwTarget.length) {
-                rTwPos = Math.min(rTwPos + 6, rTwTarget.length);
+                rTwPos = Math.min(rTwPos + 24, rTwTarget.length);
                 mn.innerHTML = renderMarkdown(rTwTarget.slice(0, rTwPos));
                 scrollToBottom();
             }
@@ -536,6 +538,9 @@ async function retryLastResponse(msgDiv) {
                 mn.innerHTML = renderMarkdown(rTwTarget);
                 highlightCodeBlocks(bubble); scrollToBottom();
             }
+        }
+        function rStartTypewriter() {
+            if (rTwTimer === null) rTwTimer = setInterval(rTwTick, 16);
         }
 
         while (true) {
@@ -558,15 +563,18 @@ async function retryLastResponse(msgDiv) {
                 rThinkingDone = true;
                 finalizeThinking(rThinkingPanel, ((Date.now() - rThinkingStart) / 1000).toFixed(1), rThinkingPanel.textEl.textContent);
             }
-            // Accumulate content silently — typewriter starts after full stream ends
-            if (mainText) rTwTarget = mainText;
+            // Start typewriter immediately when content arrives
+            if (mainText) {
+                rTwTarget = mainText;
+                rStartTypewriter();
+            }
         }
 
         if (firstChunk) removeTypingIndicator();
         rStreamDone = true;
 
-        // Stream fully done — start typewriter now so message appears after thinking finishes
-        if (rTwTarget && rTwTimer === null) rTwTimer = setInterval(rTwTick, 14);
+        // Ensure typewriter is running (fallback if no thinking tokens were present)
+        if (rTwTarget) rStartTypewriter();
 
         await new Promise(resolve => {
             if (rTwTimer === null) { resolve(); return; }
@@ -1038,8 +1046,8 @@ async function sendMessage(text) {
         let twTimer   = null;
         let streamDone = false;
 
-        const TW_CHARS_PER_TICK = 6;   // chars revealed per tick
-        const TW_TICK_MS        = 14;  // ~70 chars/s — feels natural
+        const TW_CHARS_PER_TICK = 24;  // chars revealed per tick
+        const TW_TICK_MS        = 16;  // ~1500 chars/s — fast but still readable
 
         function getOrCreateMainNode() {
             let mainNode = bubble.querySelector('.main-response');
@@ -1088,8 +1096,11 @@ async function sendMessage(text) {
                 thinkingDone = true;
                 finalizeThinking(thinkingPanel, ((Date.now() - thinkingStartTime) / 1000).toFixed(1), thinkingPanel.textEl.textContent);
             }
-            // Accumulate content silently — typewriter only starts after full stream ends
-            if (mainText) twTarget = mainText;
+            // Update target and start typewriter immediately when content arrives
+            if (mainText) {
+                twTarget = mainText;
+                startTypewriter();
+            }
         }
 
         while (true) {
