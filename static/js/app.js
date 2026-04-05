@@ -36,9 +36,14 @@ function renderURLBadges(urls) {
         badge.className = 'url-badge ' + entry.status;
         badge.dataset.url = url;
 
+        const SVG_LINK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8.914 6.025a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95l-2 2a3.5 3.5 0 0 1-4.95-4.95l1.17-1.17a.75.75 0 0 1 1.06 1.06L3.084 9.086a2 2 0 0 0 2.829 2.828l2-2a2 2 0 0 0 0-2.828.75.75 0 0 1 0-1.06Zm-3.84 1.96a.75.75 0 0 1-1.061 0 3.5 3.5 0 0 1 0-4.95l2-2a3.5 3.5 0 0 1 4.95 4.95l-1.17 1.17a.75.75 0 1 1-1.06-1.06l1.17-1.17a2 2 0 0 0-2.829-2.828l-2 2a2 2 0 0 0 0 2.828.75.75 0 0 1 0 1.06Z" clip-rule="evenodd"/></svg>';
+        const SVG_CHECK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="2,6.5 4.5,9 10,3"/></svg>';
+        const SVG_X     = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="12" height="12"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg>';
+        const SVG_SPIN  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12" style="animation:badgeSpin 1s linear infinite"><circle cx="6" cy="6" r="4" stroke-dasharray="18 8" stroke-linecap="round"/></svg>';
+
         const icon = document.createElement('span');
         icon.className = 'url-badge-icon';
-        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M6.22 8.72a.75.75 0 001.06 1.06l1.62-1.62A3.25 3.25 0 004.6 3.6L2.97 5.22A3.25 3.25 0 007.28 9.78l.44-.44a.75.75 0 00-1.06-1.06l-.44.44a1.75 1.75 0 11-2.47-2.47l1.62-1.62a1.75 1.75 0 012.61 2.33l-.7.72zM9.78 7.28a.75.75 0 00-1.06-1.06l-1.62 1.62A3.25 3.25 0 0011.4 12.4l1.62-1.62a3.25 3.25 0 00-4.31-4.18l-.44.44a.75.75 0 001.06 1.06l.44-.44a1.75 1.75 0 112.47 2.47L10.6 11.75a1.75 1.75 0 01-2.61-2.33l.7-.72z"/></svg>';
+        icon.innerHTML = SVG_LINK;
 
         const label = document.createElement('span');
         label.className = 'url-badge-label';
@@ -47,7 +52,7 @@ function renderURLBadges(urls) {
 
         const status = document.createElement('span');
         status.className = 'url-badge-status';
-        status.textContent = entry.status === 'loading' ? 'fetching…' : entry.status === 'ready' ? 'read ✓' : 'error';
+        status.innerHTML = entry.status === 'loading' ? SVG_SPIN : entry.status === 'ready' ? SVG_CHECK : SVG_X;
 
         badge.appendChild(icon);
         badge.appendChild(label);
