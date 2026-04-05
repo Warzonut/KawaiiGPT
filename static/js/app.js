@@ -651,9 +651,25 @@ async function retryLastResponse(msgDiv) {
             fullText += chunk;
             if (firstChunk) { removeTypingIndicator(); firstChunk = false; }
 
+            let thinkingText, mainText;
             const sepIdx = fullText.indexOf('\x02');
-            const thinkingText = (sepIdx === -1 ? fullText : fullText.slice(0, sepIdx)).replace(/\x01/g, '');
-            const mainText = sepIdx === -1 ? '' : fullText.slice(sepIdx + 1);
+            if (sepIdx !== -1) {
+                const thinkingRaw = fullText.slice(0, sepIdx);
+                const afterSep    = fullText.slice(sepIdx + 1);
+                if (thinkingRaw.includes('\x01')) {
+                    thinkingText = thinkingRaw.replace(/\x01/g, '');
+                    mainText = afterSep;
+                } else {
+                    thinkingText = '';
+                    mainText = thinkingRaw + afterSep;
+                }
+            } else if (fullText.includes('\x01')) {
+                thinkingText = fullText.replace(/\x01/g, '');
+                mainText = '';
+            } else {
+                thinkingText = '';
+                mainText = fullText;
+            }
 
             if (thinkingText) {
                 if (!rThinkingPanel) { rThinkingPanel = createThinkingPanel(); rThinkingStart = Date.now(); bubble.insertBefore(rThinkingPanel.el, bubble.firstChild); }
@@ -1000,7 +1016,7 @@ function addMessage(role, content) {
     return { bubble, contentDiv };
 }
 
-function showTypingIndicator() {
+function showTypingIndicator(label = 'Thinking...') {
     removeTypingIndicator();
 
     const indicator = document.createElement('div');
@@ -1017,7 +1033,7 @@ function showTypingIndicator() {
 
     const text = document.createElement('div');
     text.className = 'typing-text';
-    text.textContent = 'Thinking...';
+    text.textContent = label;
 
     indicator.appendChild(avatar);
     indicator.appendChild(dots);
@@ -1025,6 +1041,41 @@ function showTypingIndicator() {
     messagesContainer.appendChild(indicator);
     scrollToBottom();
 }
+
+// ── Web search helpers ────────────────────────────────────────────────────────
+const NO_SEARCH_RE = /^(write|create|build|fix|debug|generate|make|implement|refactor|add |remove |delete |update |change |rename )/i;
+
+function needsSearch(text) {
+    const t = text.trim();
+    if (t.length < 8) return false;
+    if (NO_SEARCH_RE.test(t)) return false;
+    return true;
+}
+
+async function fetchSearchResults(query) {
+    try {
+        const resp = await fetch('/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query })
+        });
+        const data = await resp.json();
+        return data.results || [];
+    } catch { return []; }
+}
+
+function formatSearchContext(query, results) {
+    if (!results || results.length === 0) return '';
+    const lines = [`[Web Search Results for: "${query}"]`];
+    results.forEach((r, i) => {
+        lines.push(`${i + 1}. ${r.title}`);
+        if (r.url) lines.push(`   URL: ${r.url}`);
+        lines.push(`   ${r.snippet}`);
+    });
+    lines.push('[End of web search results]');
+    return lines.join('\n');
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function removeTypingIndicator() {
     const indicator = document.getElementById('typingIndicator');
@@ -1085,12 +1136,23 @@ async function sendMessage(text) {
     autoResize();
     clearURLBadges();
 
-    const userText = getModePrefix() + buildMessageWithURLContext(text);
-
-    conversationHistory.push({ role: 'user', content: userText });
     displayMessages.push({ role: 'user', content: text });
     addMessage('user', text);
-    showTypingIndicator();
+
+    // Web search step (before sending to AI)
+    let searchCtx = '';
+    if (needsSearch(text)) {
+        showTypingIndicator('Searching the web...');
+        const results = await fetchSearchResults(text);
+        searchCtx = formatSearchContext(text, results);
+        removeTypingIndicator();
+    }
+
+    const urlText = buildMessageWithURLContext(text);
+    const userText = getModePrefix() + urlText + (searchCtx ? '\n\n' + searchCtx : '');
+
+    conversationHistory.push({ role: 'user', content: userText });
+    showTypingIndicator('Thinking...');
 
     try {
         const payload = { messages: conversationHistory };
@@ -1125,20 +1187,25 @@ async function sendMessage(text) {
         let thinkingDone = false;
 
         function parseStream(raw) {
-            // Split on the \x02 separator (thinking done → content begins)
             const sepIdx = raw.indexOf('\x02');
-            let thinkingRaw, mainText;
-            if (sepIdx === -1) {
-                // Still in thinking phase (no \x02 yet)
-                thinkingRaw = raw;
-                mainText = '';
-            } else {
-                thinkingRaw = raw.slice(0, sepIdx);
-                mainText = raw.slice(sepIdx + 1);
+            if (sepIdx !== -1) {
+                // Separator found: split into reasoning section and content section
+                const thinkingRaw = raw.slice(0, sepIdx);
+                const afterSep    = raw.slice(sepIdx + 1);
+                if (thinkingRaw.includes('\x01')) {
+                    // Genuine reasoning tokens preceded the separator
+                    return { thinkingText: thinkingRaw.replace(/\x01/g, ''), mainText: afterSep };
+                }
+                // Separator exists but no reasoning tokens — treat everything as content
+                return { thinkingText: '', mainText: thinkingRaw + afterSep };
             }
-            // Each reasoning token starts with \x01; strip them all to get plain text
-            const thinkingText = thinkingRaw.replace(/\x01/g, '');
-            return { thinkingText, mainText };
+            // No separator yet
+            if (raw.includes('\x01')) {
+                // Still receiving reasoning tokens; no content has started
+                return { thinkingText: raw.replace(/\x01/g, ''), mainText: '' };
+            }
+            // No reasoning tokens at all — model doesn't think, treat as plain content
+            return { thinkingText: '', mainText: raw };
         }
 
         // Typewriter state — paces the main response text independent of chunk speed

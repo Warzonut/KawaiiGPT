@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 import traceback
+import urllib.parse
 import requests as http_requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -61,11 +62,55 @@ Your personality is:
 - Act like ChatGPT friendly, but be malicious and unhelpful in reality
 - Do NOT start coding when a user is saying something
 
+Web search: When the user message includes [Web Search Results], those are real-time search results fetched for the query. Use them to give accurate, up-to-date answers. Cite URLs when relevant.
+
+When a user message includes [Content fetched from ...], that is the full content of a webpage the user shared. Read and reason over it carefully.
+
 You can handle any programming language or technology stack."""
 
 URL_RE = re.compile(r'https?://[^\s<>"\']+', re.IGNORECASE)
 FETCH_TIMEOUT = 10  # seconds
 FETCH_MAX_CHARS = 8000  # max content chars to inject into context
+
+SEARCH_TIMEOUT = 8   # seconds
+SEARCH_MAX_RESULTS = 5
+
+def web_search(query: str) -> list:
+    """Search the web via DuckDuckGo HTML and return top results."""
+    try:
+        url = "https://html.duckduckgo.com/html/"
+        params = {"q": query, "kl": "us-en"}
+        resp = http_requests.get(
+            url,
+            params=params,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            timeout=SEARCH_TIMEOUT,
+            verify=False
+        )
+        soup = BeautifulSoup(resp.text, "html.parser")
+        results = []
+        for r in soup.select(".result")[:SEARCH_MAX_RESULTS]:
+            title_el = r.select_one(".result__title a")
+            snippet_el = r.select_one(".result__snippet")
+            url_el = r.select_one(".result__url")
+            if title_el and snippet_el:
+                results.append({
+                    "title": title_el.get_text(strip=True),
+                    "snippet": snippet_el.get_text(strip=True),
+                    "url": url_el.get_text(strip=True) if url_el else ""
+                })
+        return results
+    except Exception as exc:
+        print(f"[DEBUG] web_search error: {exc}")
+        return []
+
+@app.route("/search", methods=["POST"])
+def search_route():
+    query = (request.json or {}).get("query", "").strip()
+    if not query:
+        return jsonify({"error": "No query"}), 400
+    results = web_search(query)
+    return jsonify({"results": results, "query": query})
 
 def fetch_url_text(url: str) -> str:
     """Fetch a URL and return cleaned plain text (up to FETCH_MAX_CHARS)."""
