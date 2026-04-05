@@ -834,6 +834,53 @@ async function sendMessage(text) {
         const { bubble, contentDiv } = addMessage('bot', 'Thinking...');
         let firstChunk = true;
 
+        // Thinking token state
+        let thinkingText = '';
+        let mainText = '';
+        let inThinking = false;
+        let thinkingDiv = null;
+        let thinkingContent = null;
+
+        function ensureThinkingBlock() {
+            if (!thinkingDiv) {
+                thinkingDiv = document.createElement('div');
+                thinkingDiv.className = 'thinking-block';
+                const header = document.createElement('div');
+                header.className = 'thinking-header';
+                header.innerHTML = '<span class="thinking-toggle">&#9654;</span> Thinking';
+                thinkingContent = document.createElement('div');
+                thinkingContent.className = 'thinking-content';
+                header.addEventListener('click', () => {
+                    thinkingDiv.classList.toggle('expanded');
+                    header.querySelector('.thinking-toggle').innerHTML =
+                        thinkingDiv.classList.contains('expanded') ? '&#9660;' : '&#9654;';
+                });
+                thinkingDiv.appendChild(header);
+                thinkingDiv.appendChild(thinkingContent);
+                bubble.insertBefore(thinkingDiv, bubble.firstChild);
+            }
+        }
+
+        function updateBubble() {
+            if (thinkingDiv && thinkingContent) {
+                thinkingContent.innerHTML = renderMarkdown(thinkingText);
+            }
+            // Render only the main (non-thinking) text in the main area
+            const mainNode = bubble.querySelector('.main-response') || (() => {
+                const d = document.createElement('div');
+                d.className = 'main-response';
+                bubble.appendChild(d);
+                return d;
+            })();
+            if (mainText) {
+                mainNode.innerHTML = renderMarkdown(mainText);
+            } else {
+                mainNode.innerHTML = '';
+            }
+            highlightCodeBlocks(bubble);
+            scrollToBottom();
+        }
+
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -842,26 +889,66 @@ async function sendMessage(text) {
             chunkCount += 1;
             fullText += chunk;
             console.debug('[DEBUG] chunk', { index: chunkCount, len: chunk.length, preview: chunk.slice(0,120) });
+
             if (firstChunk) {
                 removeTypingIndicator();
                 firstChunk = false;
             }
 
-            bubble.innerHTML = renderMarkdown(fullText);
-            highlightCodeBlocks(bubble);
-            scrollToBottom();
+            // Parse thinking tokens from accumulated fullText
+            let remaining = fullText;
+            thinkingText = '';
+            mainText = '';
+            inThinking = false;
+
+            const thinkOpenTag = '<thinking>';
+            const thinkCloseTag = '</thinking>';
+
+            let cursor = 0;
+            while (cursor < remaining.length) {
+                if (!inThinking) {
+                    const openIdx = remaining.indexOf(thinkOpenTag, cursor);
+                    if (openIdx === -1) {
+                        mainText += remaining.slice(cursor);
+                        break;
+                    }
+                    mainText += remaining.slice(cursor, openIdx);
+                    inThinking = true;
+                    cursor = openIdx + thinkOpenTag.length;
+                    ensureThinkingBlock();
+                } else {
+                    const closeIdx = remaining.indexOf(thinkCloseTag, cursor);
+                    if (closeIdx === -1) {
+                        // Still inside an open <thinking> block
+                        thinkingText += remaining.slice(cursor);
+                        ensureThinkingBlock();
+                        break;
+                    }
+                    thinkingText += remaining.slice(cursor, closeIdx);
+                    inThinking = false;
+                    cursor = closeIdx + thinkCloseTag.length;
+                }
+            }
+
+            updateBubble();
         }
 
         if (firstChunk) removeTypingIndicator();
 
-        if (chunkCount <= 1 && fullText.length > 0) {
-            animateReveal(bubble, fullText);
+        // Strip thinking tags from the text stored in history
+        const cleanText = fullText
+            .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
+            .trim();
+
+        if (chunkCount <= 1 && cleanText.length > 0) {
+            const mainNode = bubble.querySelector('.main-response') || bubble;
+            animateReveal(mainNode, cleanText);
         }
 
         console.debug('[DEBUG] sendMessage complete', { chunkCount, totalLen: fullText.length });
 
-        conversationHistory.push({ role: 'assistant', content: fullText });
-        displayMessages.push({ role: 'bot', content: fullText });
+        conversationHistory.push({ role: 'assistant', content: cleanText });
+        displayMessages.push({ role: 'bot', content: cleanText });
 
         if (conversationHistory.length === 2) {
             const title = text.length > 40 ? text.substring(0, 40) + '...' : text;
