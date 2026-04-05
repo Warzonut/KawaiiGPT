@@ -604,7 +604,7 @@ function restoreWelcomeScreen() {
     ws.className = 'welcome-screen';
     ws.id = 'welcomeScreen';
     ws.innerHTML = `
-        <div class="welcome-logo">✦</div>
+        <div class="welcome-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" width="64" height="64"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.2" fill="currentColor" fill-opacity="0.12"/><circle cx="9" cy="10.5" r="1.5" fill="currentColor"/><circle cx="15" cy="10.5" r="1.5" fill="currentColor"/><ellipse cx="7" cy="13.5" rx="2" ry="1.2" fill="currentColor" fill-opacity="0.35"/><ellipse cx="17" cy="13.5" rx="2" ry="1.2" fill="currentColor" fill-opacity="0.35"/><path d="M9 14.5 Q12 17.5 15 14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg></div>
         <h2>Welcome to KawaiiGPT</h2>
         <p>Your AI chatbot and code writing assistant. Ask me anything or pick a quick prompt to get started!</p>
         <div class="welcome-features">

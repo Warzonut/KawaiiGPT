@@ -62,9 +62,10 @@ body {
 }
 
 .logo-icon {
-    font-size: 22px;
+    display: flex;
+    align-items: center;
     color: var(--accent);
-    text-shadow: 0 0 20px rgba(167,139,250,0.6);
+    filter: drop-shadow(0 0 8px rgba(167,139,250,0.6));
 }
 
 .logo-text {
@@ -290,9 +291,10 @@ body {
 }
 
 .welcome-logo {
-    font-size: 56px;
+    display: flex;
+    justify-content: center;
     color: var(--accent);
-    text-shadow: 0 0 40px rgba(167,139,250,0.5);
+    filter: drop-shadow(0 0 20px rgba(167,139,250,0.5));
     margin-bottom: 8px;
 }
 
