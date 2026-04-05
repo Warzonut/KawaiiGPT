@@ -140,6 +140,25 @@ def fetch_url_text(url: str) -> str:
     except Exception as exc:
         return f"[Could not fetch URL: {exc}]"
 
+GITHUB_BLOB_RE = re.compile(r'https?://github\.com/([^/\s]+)/([^/\s]+)/blob/(.+)')
+
+def github_blob_to_raw(url: str) -> str:
+    """Convert a github.com /blob/ URL to raw.githubusercontent.com URL."""
+    m = GITHUB_BLOB_RE.match(url)
+    if m:
+        owner, repo, path = m.group(1), m.group(2), m.group(3)
+        return f"https://raw.githubusercontent.com/{owner}/{repo}/{path}"
+    return url
+
+@app.route("/github-fetch", methods=["POST"])
+def github_fetch_route():
+    url = (request.json or {}).get("url", "").strip()
+    if not url:
+        return jsonify({"error": "No URL"}), 400
+    raw_url = github_blob_to_raw(url)
+    content = fetch_url_text(raw_url)
+    return jsonify({"content": content, "raw_url": raw_url})
+
 @app.route("/fetch-url", methods=["POST"])
 def fetch_url_route():
     url = (request.json or {}).get("url", "")

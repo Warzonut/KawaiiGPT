@@ -183,11 +183,12 @@ function createThinkingPanel() {
 }
 
 function updateThinkingText(tp, text) {
-    // Show only the last 3000 chars to avoid expensive DOM updates on very long thinking
-    const display = text.length > 3000 ? '\u2026' + text.slice(-3000) : text;
-    tp.textEl.textContent = display;
-    // auto-scroll thinking body
-    tp.body.scrollTop = tp.body.scrollHeight;
+    // Don't display raw model reasoning (it contains system-prompt persona text).
+    // The panel header already shows "Thinking..." with a timer — that's enough.
+    if (!tp.textEl._placeholderSet) {
+        tp.textEl.textContent = 'Reasoning through your request...';
+        tp.textEl._placeholderSet = true;
+    }
 }
 
 function finalizeThinking(tp, elapsedSec, finalText) {
@@ -1043,13 +1044,44 @@ function showTypingIndicator(label = 'Thinking...') {
 }
 
 // ── Web search helpers ────────────────────────────────────────────────────────
-const NO_SEARCH_RE = /^(write|create|build|fix|debug|generate|make|implement|refactor|add |remove |delete |update |change |rename )/i;
+// Positive indicators — trigger search when present
+const SEARCH_TRIGGER_RE = /^(what|how|why|when|where|who|which|is |are |can |could |should |would |will |explain|tell me|show me|find|search|look up|lookup|define|list|give me|any |does |do )/i;
+const SEARCH_TOPIC_RE   = /\b(latest|current|recent|today|now|2024|2025|2026|release|version|news|update|tutorial|guide|example|examples|vs\.?|versus|difference|compare|benchmark|review|best|top|popular|recommended)\b/i;
+// Hard-exclude pure imperative code requests
+const NO_SEARCH_RE = /^(write|create|build|fix|debug|generate|make|implement|refactor|rename|rewrite|refactor)\b/i;
 
 function needsSearch(text) {
     const t = text.trim();
-    if (t.length < 8) return false;
+    if (t.length < 6) return false;
     if (NO_SEARCH_RE.test(t)) return false;
-    return true;
+    if (SEARCH_TRIGGER_RE.test(t)) return true;
+    if (SEARCH_TOPIC_RE.test(t)) return true;
+    // Default: search for short conversational messages that aren't code requests
+    return t.split(' ').length <= 6 && !t.includes('{') && !t.includes('(');
+}
+
+// ── GitHub raw-file fetch ──────────────────────────────────────────────────
+const GITHUB_BLOB_RE = /github\.com\/([^/\s]+)\/([^/\s]+)\/blob\/(.+)/;
+
+function githubBlobToRaw(url) {
+    const m = GITHUB_BLOB_RE.exec(url);
+    if (!m) return null;
+    return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`;
+}
+
+async function fetchGithubFile(url) {
+    try {
+        const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+        const rawUrl = githubBlobToRaw(fullUrl);
+        if (!rawUrl) return '';
+        const resp = await fetch('/github-fetch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: fullUrl })
+        });
+        const data = await resp.json();
+        return data.content || '';
+    } catch { return ''; }
 }
 
 async function fetchSearchResults(query) {
@@ -1060,7 +1092,16 @@ async function fetchSearchResults(query) {
             body: JSON.stringify({ query })
         });
         const data = await resp.json();
-        return data.results || [];
+        const results = data.results || [];
+
+        // Auto-fetch any GitHub file URLs found in results
+        await Promise.all(results.map(async r => {
+            if (r.url && GITHUB_BLOB_RE.test(r.url)) {
+                r.github_content = await fetchGithubFile(r.url);
+            }
+        }));
+
+        return results;
     } catch { return []; }
 }
 
@@ -1069,8 +1110,13 @@ function formatSearchContext(query, results) {
     const lines = [`[Web Search Results for: "${query}"]`];
     results.forEach((r, i) => {
         lines.push(`${i + 1}. ${r.title}`);
-        if (r.url) lines.push(`   URL: ${r.url}`);
+        if (r.url) lines.push(`   URL: https://${r.url}`);
         lines.push(`   ${r.snippet}`);
+        if (r.github_content) {
+            lines.push(`   [GitHub file content]`);
+            lines.push(r.github_content.slice(0, 3000));
+            lines.push(`   [End of GitHub file content]`);
+        }
     });
     lines.push('[End of web search results]');
     return lines.join('\n');
