@@ -143,23 +143,23 @@ def chat():
                 return
 
             chunk_index = 0
+            content_started = False  # track when actual content (non-reasoning) begins
             for chunk in stream:
                 chunk_index += 1
                 try:
-                    # dump a short repr for debugging
                     print(f"[DEBUG] received raw chunk repr={repr(chunk)[:400]}")
                 except Exception:
                     pass
 
                 # extract content safely (handle object or dict)
                 content = None
+                reasoning_content = None
                 try:
                     delta = getattr(chunk, 'choices', None) and getattr(chunk.choices[0], 'delta', None)
                 except Exception:
                     delta = None
                 if delta is None:
                     try:
-                        # maybe chunk itself contains 'content'
                         content = getattr(chunk, 'content', None)
                     except Exception:
                         try:
@@ -174,10 +174,27 @@ def chat():
                             content = delta.get('content') if isinstance(delta, dict) else None
                         except Exception:
                             content = None
+                    # also grab reasoning/thinking tokens (qwen3 extended thinking)
+                    try:
+                        reasoning_content = getattr(delta, 'reasoning_content', None)
+                        if reasoning_content is None:
+                            reasoning_content = getattr(delta, 'reasoning', None)
+                    except Exception:
+                        reasoning_content = None
+
+                # yield thinking tokens (prefix \x01 marks them as reasoning)
+                if reasoning_content:
+                    preview = str(reasoning_content)[:80].replace('\n', '\\n')
+                    print(f"[DEBUG] reasoning chunk #{chunk_index} len={len(str(reasoning_content))} preview={preview}")
+                    yield '\x01' + reasoning_content
 
                 if content:
+                    # send a one-time separator to signal transition from thinking → writing
+                    if not content_started:
+                        content_started = True
+                        yield '\x02'  # separator byte: thinking done, content begins
                     preview = str(content)[:120].replace('\n', '\\n')
-                    print(f"[DEBUG] chunk #{chunk_index} len={len(str(content))} preview={preview}")
+                    print(f"[DEBUG] content chunk #{chunk_index} len={len(str(content))} preview={preview}")
                     yield content
 
             print(f"[DEBUG] stream finished total_chunks={chunk_index}")
