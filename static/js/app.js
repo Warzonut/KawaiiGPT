@@ -17,6 +17,10 @@ const codeStore = {};
 const PREVIEW_LANGS = new Set(['html', 'css', 'javascript', 'js', 'typescript', 'ts', 'python', 'py', 'json']);
 const RUN_LANGS = new Set(['html', 'css', 'javascript', 'js']);
 
+const SVG_CHEVRON_RIGHT = '<svg width="8" height="10" viewBox="0 0 8 10" fill="currentColor" style="display:inline-block;vertical-align:middle"><polygon points="1,1 7,5 1,9"/></svg>';
+const SVG_CHEVRON_DOWN  = '<svg width="10" height="8" viewBox="0 0 10 8" fill="currentColor" style="display:inline-block;vertical-align:middle"><polygon points="1,1 9,1 5,7"/></svg>';
+const SVG_CLOSE         = '<svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="display:inline-block;vertical-align:middle"><line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/></svg>';
+
 let conversationHistory = [];
 let displayMessages = [];
 let isStreaming = false;
@@ -106,7 +110,7 @@ renderer.code = function(token) {
     codeStore[id] = code;
     const hasPreview = PREVIEW_LANGS.has(lang);
     const previewBtn = hasPreview
-        ? `<button class="preview-btn" onclick="togglePreview('${id}')">&#9654; Preview</button>`
+        ? `<button class="preview-btn" onclick="togglePreview('${id}')">${SVG_CHEVRON_RIGHT} Preview</button>`
         : '';
     return `
         <div class="code-block-wrapper">
@@ -295,7 +299,7 @@ function buildPreviewContent(lang, code) {
             .err { color:#f87171; } .log { color:#f0f0f5; } .info { color:#60a5fa; } .warn { color:#fb923c; }
             .label { color:#a78bfa; font-size:11px; margin-bottom:8px; }
         </style></head><body>
-            <div class="label">&#9654; Console Output</div>
+            <div class="label">${SVG_CHEVRON_RIGHT} Console Output</div>
             <div id="output"></div>
             <script>
                 const _o = document.getElementById('output');
@@ -321,7 +325,7 @@ function buildPreviewContent(lang, code) {
             return `<!DOCTYPE html><html><head><style>
                 body{background:#0f0f13;color:#f0f0f5;font-family:monospace;padding:16px;margin:0;font-size:13px;line-height:1.6;}
                 .label{color:#a78bfa;font-size:11px;margin-bottom:8px;}
-            </style></head><body><div class="label">&#9654; JSON Preview</div><pre>${formatted}</pre></body></html>`;
+            </style></head><body><div class="label">${SVG_CHEVRON_RIGHT} JSON Preview</div><pre>${formatted}</pre></body></html>`;
         } catch (e) {
             return `<!DOCTYPE html><html><body style="background:#0f0f13;color:#f87171;padding:16px;font-family:monospace;">Invalid JSON: ${e.message}</body></html>`;
         }
@@ -359,7 +363,7 @@ function togglePreview(id) {
     if (existing) {
         const isHidden = existing.style.display === 'none';
         existing.style.display = isHidden ? 'block' : 'none';
-        btn.textContent = isHidden ? '&#9660; Hide' : '&#9654; Preview';
+        btn.innerHTML = isHidden ? SVG_CHEVRON_DOWN + ' Hide' : SVG_CHEVRON_RIGHT + ' Preview';
         return;
     }
 
@@ -375,7 +379,7 @@ function togglePreview(id) {
     panelHeader.className = 'preview-panel-header';
     panelHeader.innerHTML = `
         <span class="preview-panel-title">Preview · ${lang.toUpperCase()}</span>
-        <button class="preview-close-btn" onclick="togglePreview('${id}')">&#10005; Close</button>
+        <button class="preview-close-btn" onclick="togglePreview('${id}')">${SVG_CLOSE} Close</button>
     `;
 
     const iframe = document.createElement('iframe');
@@ -390,7 +394,7 @@ function togglePreview(id) {
     doc.write(content);
     doc.close();
 
-    btn.textContent = '&#9660; Hide';
+    btn.innerHTML = SVG_CHEVRON_DOWN + ' Hide';
 }
 
 function addRetryButton(msgDiv) {
@@ -845,13 +849,13 @@ async function sendMessage(text) {
                 thinkingDiv.className = 'thinking-block';
                 const header = document.createElement('div');
                 header.className = 'thinking-header';
-                header.innerHTML = '<span class="thinking-toggle">&#9654;</span> Thinking';
+                header.innerHTML = '<span class="thinking-toggle">' + SVG_CHEVRON_RIGHT + '</span> Thinking';
                 thinkingContent = document.createElement('div');
                 thinkingContent.className = 'thinking-content';
                 header.addEventListener('click', () => {
                     thinkingDiv.classList.toggle('expanded');
                     header.querySelector('.thinking-toggle').innerHTML =
-                        thinkingDiv.classList.contains('expanded') ? '&#9660;' : '&#9654;';
+                        thinkingDiv.classList.contains('expanded') ? SVG_CHEVRON_DOWN : SVG_CHEVRON_RIGHT;
                 });
                 thinkingDiv.appendChild(header);
                 thinkingDiv.appendChild(thinkingContent);
