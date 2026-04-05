@@ -76,29 +76,49 @@ SEARCH_TIMEOUT = 8   # seconds
 SEARCH_MAX_RESULTS = 5
 
 def web_search(query: str) -> list:
-    """Search the web via DuckDuckGo HTML and return top results."""
+    """Search the web via DuckDuckGo HTML and return top results with real URLs."""
     try:
         url = "https://html.duckduckgo.com/html/"
-        params = {"q": query, "kl": "us-en"}
-        resp = http_requests.get(
+        form_data = {"q": query, "kl": "us-en", "b": ""}
+        resp = http_requests.post(
             url,
-            params=params,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            data=form_data,
+            headers={
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+            },
             timeout=SEARCH_TIMEOUT,
-            verify=False
+            verify=False,
+            allow_redirects=True
         )
+        print(f"[DEBUG] web_search status={resp.status_code} len={len(resp.text)}")
         soup = BeautifulSoup(resp.text, "html.parser")
         results = []
         for r in soup.select(".result")[:SEARCH_MAX_RESULTS]:
             title_el = r.select_one(".result__title a")
             snippet_el = r.select_one(".result__snippet")
-            url_el = r.select_one(".result__url")
-            if title_el and snippet_el:
-                results.append({
-                    "title": title_el.get_text(strip=True),
-                    "snippet": snippet_el.get_text(strip=True),
-                    "url": url_el.get_text(strip=True) if url_el else ""
-                })
+            if not title_el or not snippet_el:
+                continue
+            # Extract real URL from the DDG redirect href (uddg param)
+            href = title_el.get("href", "")
+            real_url = ""
+            if href:
+                parsed = urllib.parse.urlparse(href)
+                qs = urllib.parse.parse_qs(parsed.query)
+                if "uddg" in qs:
+                    real_url = qs["uddg"][0]
+                elif href.startswith("http"):
+                    real_url = href
+                else:
+                    real_url = "https://duckduckgo.com" + href
+            results.append({
+                "title": title_el.get_text(strip=True),
+                "snippet": snippet_el.get_text(strip=True),
+                "url": real_url
+            })
+        print(f"[DEBUG] web_search found {len(results)} results")
         return results
     except Exception as exc:
         print(f"[DEBUG] web_search error: {exc}")

@@ -183,12 +183,7 @@ function createThinkingPanel() {
 }
 
 function updateThinkingText(tp, text) {
-    // Don't display raw model reasoning (it contains system-prompt persona text).
-    // The panel header already shows "Thinking..." with a timer — that's enough.
-    if (!tp.textEl._placeholderSet) {
-        tp.textEl.textContent = 'Reasoning through your request...';
-        tp.textEl._placeholderSet = true;
-    }
+    if (text) tp.textEl.textContent = text;
 }
 
 function finalizeThinking(tp, elapsedSec, finalText) {
@@ -1110,7 +1105,7 @@ function formatSearchContext(query, results) {
     const lines = [`[Web Search Results for: "${query}"]`];
     results.forEach((r, i) => {
         lines.push(`${i + 1}. ${r.title}`);
-        if (r.url) lines.push(`   URL: https://${r.url}`);
+        if (r.url) lines.push(`   URL: ${r.url}`);
         lines.push(`   ${r.snippet}`);
         if (r.github_content) {
             lines.push(`   [GitHub file content]`);
