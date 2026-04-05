@@ -490,15 +490,15 @@ async function retryLastResponse(msgDiv) {
                 rThinkingDone = true;
                 finalizeThinking(rThinkingPanel, ((Date.now() - rThinkingStart) / 1000).toFixed(1), rThinkingPanel.textEl.textContent);
             }
-            if (mainText && mainText !== rTwTarget) {
-                rTwTarget = mainText;
-                if (rTwTimer === null) rTwTimer = setInterval(rTwTick, 14);
-            }
+            // Accumulate content silently — typewriter starts after full stream ends
+            if (mainText) rTwTarget = mainText;
         }
 
         if (firstChunk) removeTypingIndicator();
         rStreamDone = true;
-        if (rTwTimer === null && rTwTarget) rTwTick();
+
+        // Stream fully done — start typewriter now so message appears after thinking finishes
+        if (rTwTarget && rTwTimer === null) rTwTimer = setInterval(rTwTick, 14);
 
         await new Promise(resolve => {
             if (rTwTimer === null) { resolve(); return; }
@@ -993,10 +993,8 @@ async function sendMessage(text) {
                 thinkingDone = true;
                 finalizeThinking(thinkingPanel, ((Date.now() - thinkingStartTime) / 1000).toFixed(1), thinkingPanel.textEl.textContent);
             }
-            if (mainText && mainText !== twTarget) {
-                twTarget = mainText;
-                startTypewriter();
-            }
+            // Accumulate content silently — typewriter only starts after full stream ends
+            if (mainText) twTarget = mainText;
         }
 
         while (true) {
@@ -1020,10 +1018,8 @@ async function sendMessage(text) {
         if (firstChunk) removeTypingIndicator();
         streamDone = true;
 
-        // If no typewriter was started (no main content), clear immediately
-        if (twTimer === null && twTarget) {
-            typewriterTick();
-        }
+        // Stream fully done — start typewriter now so message appears after thinking finishes
+        if (twTarget) startTypewriter();
 
         // Wait for typewriter to finish before saving to history
         await new Promise(resolve => {
