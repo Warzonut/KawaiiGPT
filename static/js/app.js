@@ -385,15 +385,12 @@ function togglePreview(id) {
 
     const iframe = document.createElement('iframe');
     iframe.className = 'preview-iframe';
+    iframe.srcdoc = content;
+    iframe.sandbox = 'allow-scripts allow-same-origin';
 
     panel.appendChild(panelHeader);
     panel.appendChild(iframe);
     wrapper.appendChild(panel);
-
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-    doc.open();
-    doc.write(content);
-    doc.close();
 
     btn.innerHTML = SVG_CHEVRON_DOWN + ' Hide';
 }
