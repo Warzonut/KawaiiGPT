@@ -1044,8 +1044,8 @@ textarea#userInput::-webkit-scrollbar-thumb {
     }
 }
 
-/* Thinking block styles */
-.thinking-block {
+/* Thinking panel */
+.thinking-panel {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     margin-bottom: 10px;
@@ -1053,7 +1053,7 @@ textarea#userInput::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.03);
 }
 
-.thinking-header {
+.thinking-panel .thinking-header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1063,31 +1063,77 @@ textarea#userInput::-webkit-scrollbar-thumb {
     color: rgba(255, 255, 255, 0.45);
     user-select: none;
     transition: color 0.2s;
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
 }
 
-.thinking-header:hover {
+.thinking-panel .thinking-header:hover {
     color: rgba(255, 255, 255, 0.7);
 }
 
-.thinking-toggle {
-    font-size: 0.75em;
-    transition: transform 0.2s;
+.thinking-icon { display: flex; align-items: center; }
+.thinking-status { flex: 1; }
+.thinking-chevron { display: flex; align-items: center; transition: transform 0.2s; }
+.thinking-panel.collapsed .thinking-chevron { transform: rotate(-90deg); }
+
+.thinking-body {
+    max-height: 200px;
+    overflow-y: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    transition: max-height 0.25s ease;
 }
 
-.thinking-content {
-    display: none;
+.thinking-panel.collapsed .thinking-body {
+    max-height: 0;
+    overflow: hidden;
+    border-top: none;
+}
+
+.thinking-text {
     padding: 10px 14px;
-    font-size: 0.85em;
-    color: rgba(255, 255, 255, 0.5);
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 0.82em;
+    color: rgba(255, 255, 255, 0.45);
     white-space: pre-wrap;
     word-break: break-word;
+    font-family: monospace;
 }
 
-.thinking-block.expanded .thinking-content {
-    display: block;
+.thinking-panel.done .thinking-header {
+    color: rgba(255, 255, 255, 0.3);
 }
 
 .main-response {
     display: block;
+}
+
+/* Drag-to-reorder history */
+.history-drag-handle {
+    display: flex;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.2);
+    cursor: grab;
+    padding: 2px;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+
+.history-item:hover .history-drag-handle {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.history-drag-handle:active {
+    cursor: grabbing;
+}
+
+.history-item.dragging {
+    opacity: 0.4;
+    background: var(--bg-card);
+}
+
+.history-item.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    box-shadow: 0 0 0 1px var(--accent);
 }

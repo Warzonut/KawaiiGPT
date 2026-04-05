@@ -33,6 +33,7 @@ const originalSendBtnHTML = sendBtn ? sendBtn.innerHTML : null;
 // SVG icons
 const SVG = {
     chat: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902.848.137 1.705.248 2.57.331v3.443a.75.75 0 001.28.53l3.58-3.579a.78.78 0 01.527-.224 41.202 41.202 0 005.183-.5c1.437-.232 2.43-1.49 2.43-2.903V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2zm0 7a1 1 0 100-2 1 1 0 000 2zM6 9a1 1 0 11-2 0 1 1 0 012 0zm7 1a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>`,
+    drag: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><circle cx="5.5" cy="3.5" r="1.25"/><circle cx="5.5" cy="8" r="1.25"/><circle cx="5.5" cy="12.5" r="1.25"/><circle cx="10.5" cy="3.5" r="1.25"/><circle cx="10.5" cy="8" r="1.25"/><circle cx="10.5" cy="12.5" r="1.25"/></svg>`,
     edit: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg>`,
     trash: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" /></svg>`,
     close: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M5.28 4.22a.75.75 0 00-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 101.06 1.06L8 9.06l2.72 2.72a.75.75 0 101.06-1.06L9.06 8l2.72-2.72a.75.75 0 00-1.06-1.06L8 6.94 5.28 4.22z" /></svg>`,
@@ -443,9 +444,31 @@ async function retryLastResponse(msgDiv) {
         let fullText = '';
         let chunkCount = 0;
 
-        const { bubble, contentDiv } = addMessage('bot', 'Thinking...');
+        const { bubble, contentDiv } = addMessage('bot', '');
+        bubble.innerHTML = '';
         const newMsgDiv = contentDiv.closest('.message');
         let firstChunk = true;
+        let rThinkingPanel = null, rThinkingStart = null, rThinkingDone = false;
+        let rTwTarget = '', rTwPos = 0, rTwTimer = null, rStreamDone = false;
+
+        function rGetMain() {
+            let n = bubble.querySelector('.main-response');
+            if (!n) { n = document.createElement('div'); n.className = 'main-response'; bubble.appendChild(n); }
+            return n;
+        }
+        function rTwTick() {
+            const mn = rGetMain();
+            if (rTwPos < rTwTarget.length) {
+                rTwPos = Math.min(rTwPos + 6, rTwTarget.length);
+                mn.innerHTML = renderMarkdown(rTwTarget.slice(0, rTwPos));
+                scrollToBottom();
+            }
+            if (rTwPos >= rTwTarget.length && rStreamDone) {
+                clearInterval(rTwTimer); rTwTimer = null;
+                mn.innerHTML = renderMarkdown(rTwTarget);
+                highlightCodeBlocks(bubble); scrollToBottom();
+            }
+        }
 
         while (true) {
             const { done, value } = await reader.read();
@@ -453,24 +476,40 @@ async function retryLastResponse(msgDiv) {
             const chunk = decoder.decode(value, { stream: true });
             chunkCount += 1;
             fullText += chunk;
-            console.debug('[DEBUG] retry chunk', { chunkIndex: chunkCount, len: chunk.length, preview: chunk.slice(0,120) });
-            if (firstChunk) {
-                removeTypingIndicator();
-                firstChunk = false;
+            if (firstChunk) { removeTypingIndicator(); firstChunk = false; }
+
+            const sepIdx = fullText.indexOf('\x02');
+            const thinkingText = (sepIdx === -1 ? fullText : fullText.slice(0, sepIdx)).replace(/\x01/g, '');
+            const mainText = sepIdx === -1 ? '' : fullText.slice(sepIdx + 1);
+
+            if (thinkingText) {
+                if (!rThinkingPanel) { rThinkingPanel = createThinkingPanel(); rThinkingStart = Date.now(); bubble.insertBefore(rThinkingPanel.el, bubble.firstChild); }
+                updateThinkingText(rThinkingPanel, thinkingText);
             }
-            bubble.innerHTML = renderMarkdown(fullText);
-            highlightCodeBlocks(bubble);
-            scrollToBottom();
+            if (rThinkingPanel && mainText && !rThinkingDone) {
+                rThinkingDone = true;
+                finalizeThinking(rThinkingPanel, ((Date.now() - rThinkingStart) / 1000).toFixed(1), rThinkingPanel.textEl.textContent);
+            }
+            if (mainText && mainText !== rTwTarget) {
+                rTwTarget = mainText;
+                if (rTwTimer === null) rTwTimer = setInterval(rTwTick, 14);
+            }
         }
 
         if (firstChunk) removeTypingIndicator();
+        rStreamDone = true;
+        if (rTwTimer === null && rTwTarget) rTwTick();
 
-        if (chunkCount <= 1 && fullText.length > 0) {
-            animateReveal(bubble, fullText);
-        }
+        await new Promise(resolve => {
+            if (rTwTimer === null) { resolve(); return; }
+            const c = setInterval(() => { if (rTwTimer === null) { clearInterval(c); resolve(); } }, 50);
+        });
 
-        conversationHistory.push({ role: 'assistant', content: fullText });
-        displayMessages.push({ role: 'bot', content: fullText });
+        const rSepIdx = fullText.indexOf('\x02');
+        const cleanText = rSepIdx === -1 ? fullText.replace(/\x01/g, '').trim() : fullText.slice(rSepIdx + 1).trim();
+
+        conversationHistory.push({ role: 'assistant', content: cleanText });
+        displayMessages.push({ role: 'bot', content: cleanText });
         saveCurrentChat();
 
         if (newMsgDiv) addRetryButton(newMsgDiv);
@@ -579,10 +618,16 @@ function renderHistoryList() {
         return;
     }
     noHistory.style.display = 'none';
-    chats.forEach(chat => {
+
+    let dragSrcIndex = null;
+
+    chats.forEach((chat, index) => {
         const item = document.createElement('div');
         item.className = 'history-item' + (chat.id === currentChatId ? ' active' : '');
+        item.draggable = true;
+        item.dataset.index = index;
         item.innerHTML = `
+            <span class="history-drag-handle" title="Drag to reorder">${SVG.drag}</span>
             <span class="history-item-icon">${SVG.chat}</span>
             <div class="history-item-info">
                 <span class="history-item-title">${escapeHtml(chat.title)}</span>
@@ -590,8 +635,38 @@ function renderHistoryList() {
             </div>
             <button class="history-delete-btn" title="Delete">${SVG.close}</button>
         `;
+
+        item.addEventListener('dragstart', (e) => {
+            dragSrcIndex = index;
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', index);
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            chatHistoryList.querySelectorAll('.history-item').forEach(el => el.classList.remove('drag-over'));
+        });
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            chatHistoryList.querySelectorAll('.history-item').forEach(el => el.classList.remove('drag-over'));
+            if (dragSrcIndex !== index) item.classList.add('drag-over');
+        });
+        item.addEventListener('dragleave', () => {
+            item.classList.remove('drag-over');
+        });
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (dragSrcIndex === null || dragSrcIndex === index) return;
+            const allChats = getChats();
+            const [moved] = allChats.splice(dragSrcIndex, 1);
+            allChats.splice(index, 0, moved);
+            saveChats(allChats);
+            renderHistoryList();
+        });
+
         item.addEventListener('click', (e) => {
-            if (!e.target.closest('.history-delete-btn')) {
+            if (!e.target.closest('.history-delete-btn') && !e.target.closest('.history-drag-handle')) {
                 loadChat(chat.id);
             }
         });
@@ -835,33 +910,15 @@ async function sendMessage(text) {
         let fullText = '';
         let chunkCount = 0;
 
-        const { bubble, contentDiv } = addMessage('bot', 'Thinking...');
+        const { bubble, contentDiv } = addMessage('bot', '');
+        bubble.innerHTML = '';
         let firstChunk = true;
 
-        // Thinking token state
+        // Thinking token state — uses the existing createThinkingPanel system
         // Protocol: server prefixes reasoning chunks with \x01, sends \x02 once to signal content start
-        let thinkingDiv = null;
-        let thinkingContent = null;
-
-        function ensureThinkingBlock() {
-            if (!thinkingDiv) {
-                thinkingDiv = document.createElement('div');
-                thinkingDiv.className = 'thinking-block';
-                const header = document.createElement('div');
-                header.className = 'thinking-header';
-                header.innerHTML = '<span class="thinking-toggle">' + SVG_CHEVRON_RIGHT + '</span> Thinking';
-                thinkingContent = document.createElement('div');
-                thinkingContent.className = 'thinking-content';
-                header.addEventListener('click', () => {
-                    thinkingDiv.classList.toggle('expanded');
-                    header.querySelector('.thinking-toggle').innerHTML =
-                        thinkingDiv.classList.contains('expanded') ? SVG_CHEVRON_DOWN : SVG_CHEVRON_RIGHT;
-                });
-                thinkingDiv.appendChild(header);
-                thinkingDiv.appendChild(thinkingContent);
-                bubble.insertBefore(thinkingDiv, bubble.firstChild);
-            }
-        }
+        let thinkingPanel = null;
+        let thinkingStartTime = null;
+        let thinkingDone = false;
 
         function parseStream(raw) {
             // Split on the \x02 separator (thinking done → content begins)
@@ -925,8 +982,16 @@ async function sendMessage(text) {
 
         function updateBubble(thinkingText, mainText) {
             if (thinkingText) {
-                ensureThinkingBlock();
-                thinkingContent.innerHTML = renderMarkdown(thinkingText);
+                if (!thinkingPanel) {
+                    thinkingPanel = createThinkingPanel();
+                    thinkingStartTime = Date.now();
+                    bubble.insertBefore(thinkingPanel.el, bubble.firstChild);
+                }
+                updateThinkingText(thinkingPanel, thinkingText);
+            }
+            if (thinkingPanel && mainText && !thinkingDone) {
+                thinkingDone = true;
+                finalizeThinking(thinkingPanel, ((Date.now() - thinkingStartTime) / 1000).toFixed(1), thinkingPanel.textEl.textContent);
             }
             if (mainText && mainText !== twTarget) {
                 twTarget = mainText;
