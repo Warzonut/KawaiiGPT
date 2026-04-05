@@ -147,7 +147,7 @@ const SVG = {
 
 function createThinkingPanel() {
     const panel = document.createElement('div');
-    panel.className = 'thinking-panel';
+    panel.className = 'thinking-panel collapsed';
 
     const header = document.createElement('button');
     header.className = 'thinking-header';
@@ -1138,6 +1138,29 @@ async function sendMessage(text) {
 
     displayMessages.push({ role: 'user', content: text });
     addMessage('user', text);
+
+    // Wait for any in-progress URL fetches to complete before building the message
+    const pendingURLs = extractURLs(text).filter(u => urlFetchCache.has(u) && urlFetchCache.get(u).status === 'loading');
+    if (pendingURLs.length > 0) {
+        showTypingIndicator('Fetching links...');
+        await Promise.all(pendingURLs.map(u =>
+            new Promise(resolve => {
+                const poll = setInterval(() => {
+                    const e = urlFetchCache.get(u);
+                    if (!e || e.status !== 'loading') { clearInterval(poll); resolve(); }
+                }, 100);
+            })
+        ));
+        removeTypingIndicator();
+    }
+
+    // Also start fetches for any URLs we haven't seen yet (user typed fast)
+    const unseenURLs = extractURLs(text).filter(u => !urlFetchCache.has(u));
+    if (unseenURLs.length > 0) {
+        showTypingIndicator('Fetching links...');
+        await Promise.all(unseenURLs.map(u => fetchAndCacheURL(u)));
+        removeTypingIndicator();
+    }
 
     // Web search step (before sending to AI)
     let searchCtx = '';
