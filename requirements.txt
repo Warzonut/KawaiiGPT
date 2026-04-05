@@ -5,3 +5,4 @@ setuptools<81
 wheel
 requests==2.32.3
 beautifulsoup4==4.13.4
+ddgs==9.12.1

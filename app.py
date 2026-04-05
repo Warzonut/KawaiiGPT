@@ -7,6 +7,7 @@ import requests as http_requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from bs4 import BeautifulSoup
+from ddgs import DDGS
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from openai import OpenAI
 
@@ -76,49 +77,17 @@ SEARCH_TIMEOUT = 8   # seconds
 SEARCH_MAX_RESULTS = 5
 
 def web_search(query: str) -> list:
-    """Search the web via DuckDuckGo HTML and return top results with real URLs."""
+    """Search the web via DuckDuckGo and return top results with real URLs."""
     try:
-        url = "https://html.duckduckgo.com/html/"
-        form_data = {"q": query, "kl": "us-en", "b": ""}
-        resp = http_requests.post(
-            url,
-            data=form_data,
-            headers={
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.5",
-            },
-            timeout=SEARCH_TIMEOUT,
-            verify=False,
-            allow_redirects=True
-        )
-        print(f"[DEBUG] web_search status={resp.status_code} len={len(resp.text)}")
-        soup = BeautifulSoup(resp.text, "html.parser")
         results = []
-        for r in soup.select(".result")[:SEARCH_MAX_RESULTS]:
-            title_el = r.select_one(".result__title a")
-            snippet_el = r.select_one(".result__snippet")
-            if not title_el or not snippet_el:
-                continue
-            # Extract real URL from the DDG redirect href (uddg param)
-            href = title_el.get("href", "")
-            real_url = ""
-            if href:
-                parsed = urllib.parse.urlparse(href)
-                qs = urllib.parse.parse_qs(parsed.query)
-                if "uddg" in qs:
-                    real_url = qs["uddg"][0]
-                elif href.startswith("http"):
-                    real_url = href
-                else:
-                    real_url = "https://duckduckgo.com" + href
-            results.append({
-                "title": title_el.get_text(strip=True),
-                "snippet": snippet_el.get_text(strip=True),
-                "url": real_url
-            })
-        print(f"[DEBUG] web_search found {len(results)} results")
+        with DDGS() as ddgs:
+            for r in ddgs.text(query, max_results=SEARCH_MAX_RESULTS):
+                results.append({
+                    "title": r.get("title", ""),
+                    "snippet": r.get("body", ""),
+                    "url": r.get("href", "")
+                })
+        print(f"[DEBUG] web_search found {len(results)} results for: {query}")
         return results
     except Exception as exc:
         print(f"[DEBUG] web_search error: {exc}")

@@ -1081,6 +1081,7 @@ async function fetchGithubFile(url) {
 
 async function fetchSearchResults(query) {
     try {
+        console.debug('[DEBUG] fetchSearchResults query:', query);
         const resp = await fetch('/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1088,16 +1089,22 @@ async function fetchSearchResults(query) {
         });
         const data = await resp.json();
         const results = data.results || [];
+        console.debug('[DEBUG] fetchSearchResults got', results.length, 'results');
 
-        // Auto-fetch any GitHub file URLs found in results
+        // Auto-fetch GitHub file content for any GitHub blob URLs in results
         await Promise.all(results.map(async r => {
             if (r.url && GITHUB_BLOB_RE.test(r.url)) {
+                console.debug('[DEBUG] fetching GitHub file:', r.url);
                 r.github_content = await fetchGithubFile(r.url);
+                console.debug('[DEBUG] GitHub file fetched, len:', r.github_content ? r.github_content.length : 0);
             }
         }));
 
         return results;
-    } catch { return []; }
+    } catch (e) {
+        console.debug('[DEBUG] fetchSearchResults error:', e);
+        return [];
+    }
 }
 
 function formatSearchContext(query, results) {
