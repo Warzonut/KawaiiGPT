@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # Provider selection: 'qwen' (Alibaba) or 'openrouter'
 PROVIDER = os.environ.get("PROVIDER", "qwen").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "qwen-turbo" if PROVIDER == "qwen" else "nvidia/nemotron-3-super-120b-a12b:free")
+MODEL_NAME = os.environ.get("MODEL_NAME", "qwen-turbo" if PROVIDER == "qwen" else "openrouter/aurora")
 
 if PROVIDER == "qwen":
     # Expect the user to set QWEN_API_KEY and QWEN_API_URL (or AI_BASE_URL)
@@ -25,8 +25,8 @@ else:
 
 # Max tokens for completions (configurable via env var). Default: model limit.
 # Note: many models enforce a hard upper limit; setting this does not bypass model limits.
-# Qwen models support up to 1M output tokens; OpenRouter models vary — default to 32,768.
-DEFAULT_MODEL_MAX_TOKENS = 1000000 if PROVIDER == "qwen" else 32768
+# Aurora supports a 2M token context window; Qwen supports 1M.
+DEFAULT_MODEL_MAX_TOKENS = 1000000
 MODEL_MAX_TOKENS = int(os.environ.get("MODEL_MAX_TOKENS", str(DEFAULT_MODEL_MAX_TOKENS)))
 MAX_TOKENS = min(int(os.environ.get("MAX_TOKENS", str(MODEL_MAX_TOKENS))), MODEL_MAX_TOKENS)
 
