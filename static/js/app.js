@@ -65,14 +65,29 @@ async function fetchAndCacheURL(url) {
     if (urlFetchCache.has(url)) return;
     urlFetchCache.set(url, { status: 'loading', text: '' });
     try {
-        const resp = await fetch('/fetch-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
-        });
-        const data = await resp.json();
-        if (data.error) throw new Error(data.error);
-        urlFetchCache.set(url, { status: 'ready', text: data.text || '' });
+        const isGithubBlob = GITHUB_BLOB_RE ? GITHUB_BLOB_RE.test(url) : /github\.com\/[^/\s]+\/[^/\s]+\/blob\//.test(url);
+        let text = '';
+        if (isGithubBlob) {
+            // Use the GitHub raw-file endpoint for blob URLs
+            const resp = await fetch('/github-fetch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            const data = await resp.json();
+            if (data.error) throw new Error(data.error);
+            text = data.content || '';
+        } else {
+            const resp = await fetch('/fetch-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            const data = await resp.json();
+            if (data.error) throw new Error(data.error);
+            text = data.text || '';
+        }
+        urlFetchCache.set(url, { status: 'ready', text });
     } catch (e) {
         urlFetchCache.set(url, { status: 'error', text: '' });
     }
@@ -1039,20 +1054,18 @@ function showTypingIndicator(label = 'Thinking...') {
 }
 
 // ── Web search helpers ────────────────────────────────────────────────────────
-// Positive indicators — trigger search when present
-const SEARCH_TRIGGER_RE = /^(what|how|why|when|where|who|which|is |are |can |could |should |would |will |explain|tell me|show me|find|search|look up|lookup|define|list|give me|any |does |do )/i;
-const SEARCH_TOPIC_RE   = /\b(latest|current|recent|today|now|2024|2025|2026|release|version|news|update|tutorial|guide|example|examples|vs\.?|versus|difference|compare|benchmark|review|best|top|popular|recommended)\b/i;
-// Hard-exclude pure imperative code requests
-const NO_SEARCH_RE = /^(write|create|build|fix|debug|generate|make|implement|refactor|rename|rewrite|refactor)\b/i;
 
 function needsSearch(text) {
     const t = text.trim();
-    if (t.length < 6) return false;
-    if (NO_SEARCH_RE.test(t)) return false;
-    if (SEARCH_TRIGGER_RE.test(t)) return true;
-    if (SEARCH_TOPIC_RE.test(t)) return true;
-    // Default: search for short conversational messages that aren't code requests
-    return t.split(' ').length <= 6 && !t.includes('{') && !t.includes('(');
+    // Skip very short inputs
+    if (t.length < 8) return false;
+    // Skip if it looks like a pure code paste (lots of braces/semicolons and backticks)
+    const codeChars = (t.match(/[{};]/g) || []).length;
+    if (codeChars > 10 && t.startsWith('`')) return false;
+    // Skip if it's only a URL
+    if (/^https?:\/\/\S+$/.test(t)) return false;
+    // Always search for everything else
+    return true;
 }
 
 // ── GitHub raw-file fetch ──────────────────────────────────────────────────
