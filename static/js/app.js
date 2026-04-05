@@ -835,9 +835,7 @@ async function sendMessage(text) {
         let firstChunk = true;
 
         // Thinking token state
-        let thinkingText = '';
-        let mainText = '';
-        let inThinking = false;
+        // Protocol: server prefixes reasoning chunks with \x01, sends \x02 once to signal content start
         let thinkingDiv = null;
         let thinkingContent = null;
 
@@ -861,22 +859,36 @@ async function sendMessage(text) {
             }
         }
 
-        function updateBubble() {
-            if (thinkingDiv && thinkingContent) {
+        function parseStream(raw) {
+            // Split on the \x02 separator (thinking done → content begins)
+            const sepIdx = raw.indexOf('\x02');
+            let thinkingRaw, mainText;
+            if (sepIdx === -1) {
+                // Still in thinking phase (no \x02 yet)
+                thinkingRaw = raw;
+                mainText = '';
+            } else {
+                thinkingRaw = raw.slice(0, sepIdx);
+                mainText = raw.slice(sepIdx + 1);
+            }
+            // Each reasoning token starts with \x01; strip them all to get plain text
+            const thinkingText = thinkingRaw.replace(/\x01/g, '');
+            return { thinkingText, mainText };
+        }
+
+        function updateBubble(thinkingText, mainText) {
+            if (thinkingText) {
+                ensureThinkingBlock();
                 thinkingContent.innerHTML = renderMarkdown(thinkingText);
             }
-            // Render only the main (non-thinking) text in the main area
-            const mainNode = bubble.querySelector('.main-response') || (() => {
-                const d = document.createElement('div');
-                d.className = 'main-response';
-                bubble.appendChild(d);
-                return d;
-            })();
-            if (mainText) {
-                mainNode.innerHTML = renderMarkdown(mainText);
-            } else {
-                mainNode.innerHTML = '';
+            // Get or create the main response node
+            let mainNode = bubble.querySelector('.main-response');
+            if (!mainNode) {
+                mainNode = document.createElement('div');
+                mainNode.className = 'main-response';
+                bubble.appendChild(mainNode);
             }
+            mainNode.innerHTML = mainText ? renderMarkdown(mainText) : '';
             highlightCodeBlocks(bubble);
             scrollToBottom();
         }
@@ -895,50 +907,17 @@ async function sendMessage(text) {
                 firstChunk = false;
             }
 
-            // Parse thinking tokens from accumulated fullText
-            let remaining = fullText;
-            thinkingText = '';
-            mainText = '';
-            inThinking = false;
-
-            const thinkOpenTag = '<thinking>';
-            const thinkCloseTag = '</thinking>';
-
-            let cursor = 0;
-            while (cursor < remaining.length) {
-                if (!inThinking) {
-                    const openIdx = remaining.indexOf(thinkOpenTag, cursor);
-                    if (openIdx === -1) {
-                        mainText += remaining.slice(cursor);
-                        break;
-                    }
-                    mainText += remaining.slice(cursor, openIdx);
-                    inThinking = true;
-                    cursor = openIdx + thinkOpenTag.length;
-                    ensureThinkingBlock();
-                } else {
-                    const closeIdx = remaining.indexOf(thinkCloseTag, cursor);
-                    if (closeIdx === -1) {
-                        // Still inside an open <thinking> block
-                        thinkingText += remaining.slice(cursor);
-                        ensureThinkingBlock();
-                        break;
-                    }
-                    thinkingText += remaining.slice(cursor, closeIdx);
-                    inThinking = false;
-                    cursor = closeIdx + thinkCloseTag.length;
-                }
-            }
-
-            updateBubble();
+            const { thinkingText, mainText } = parseStream(fullText);
+            updateBubble(thinkingText, mainText);
         }
 
         if (firstChunk) removeTypingIndicator();
 
-        // Strip thinking tags from the text stored in history
-        const cleanText = fullText
-            .replace(/<thinking>[\s\S]*?<\/thinking>/g, '')
-            .trim();
+        // Extract the clean content (everything after \x02, or everything stripped of \x01)
+        const sepIdx = fullText.indexOf('\x02');
+        const cleanText = sepIdx === -1
+            ? fullText.replace(/\x01/g, '').trim()
+            : fullText.slice(sepIdx + 1).trim();
 
         if (chunkCount <= 1 && cleanText.length > 0) {
             const mainNode = bubble.querySelector('.main-response') || bubble;
