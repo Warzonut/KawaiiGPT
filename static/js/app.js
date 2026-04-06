@@ -1332,16 +1332,11 @@ async function sendMessage(text) {
         + (searchCtx ? '\n\n' + searchCtx : '')
         + (repoCtx   ? '\n\n' + repoCtx   : '');
 
-    // Show Editing panel if this looks like a code generation request
+    // Determine editing intent now, but don't show the panel yet
     let editingPanel = null;
     const editFilename = guessFilenameFromText(text) || null;
     const editRepoFile = findRepoFileMatch(editFilename);
-    if (currentMode === 'code' || editFilename) {
-        const fname = editFilename || 'untitled';
-        editingPanel = createEditingPanel(fname, editRepoFile);
-        messagesContainer.appendChild(editingPanel.el);
-        scrollToBottom();
-    }
+    const willShowEditingPanel = currentMode === 'code' || !!editFilename;
 
     conversationHistory.push({ role: 'user', content: userText });
     showTypingIndicator('Thinking...');
@@ -1516,10 +1511,13 @@ async function sendMessage(text) {
         const msgDiv = bubble.closest('.message');
         if (msgDiv) addRetryButton(msgDiv);
 
-        // Finalize editing panel — detect actual filename from AI response
-        if (editingPanel) {
+        // Create and finalize editing panel now that AI has finished responding
+        if (willShowEditingPanel) {
             const codeFilename = guessFilenameFromCode(cleanText) || editFilename || 'untitled';
             const repoFile = editRepoFile || findRepoFileMatch(codeFilename);
+            editingPanel = createEditingPanel(codeFilename, repoFile);
+            messagesContainer.appendChild(editingPanel.el);
+            scrollToBottom();
             // Sync the new code back into the in-memory repo context so pushes are up-to-date
             if (repoFile) {
                 const newCode = extractLargestCodeBlock(cleanText);
