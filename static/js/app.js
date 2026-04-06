@@ -1329,10 +1329,11 @@ async function sendMessage(text) {
 
     // Show Editing panel if this looks like a code generation request
     let editingPanel = null;
-    const editFilename = guessFilenameFromText(text);
+    const editFilename = guessFilenameFromText(text) || null;
+    const editRepoFile = findRepoFileMatch(editFilename);
     if (currentMode === 'code' || editFilename) {
         const fname = editFilename || 'untitled';
-        editingPanel = createEditingPanel(fname);
+        editingPanel = createEditingPanel(fname, editRepoFile);
         messagesContainer.appendChild(editingPanel.el);
         scrollToBottom();
     }
@@ -1513,7 +1514,19 @@ async function sendMessage(text) {
         // Finalize editing panel — detect actual filename from AI response
         if (editingPanel) {
             const codeFilename = guessFilenameFromCode(cleanText) || editFilename || 'untitled';
-            finalizeEditingPanel(editingPanel, [codeFilename]);
+            const repoFile = editRepoFile || findRepoFileMatch(codeFilename);
+            // Sync the new code back into the in-memory repo context so pushes are up-to-date
+            if (repoFile) {
+                const newCode = extractLargestCodeBlock(cleanText);
+                if (newCode) {
+                    const idx = repoContextFiles.indexOf(repoFile);
+                    if (idx !== -1) {
+                        repoContextFiles[idx] = { ...repoFile, content: newCode };
+                        renderContextFileBadges();
+                    }
+                }
+            }
+            finalizeEditingPanel(editingPanel, [codeFilename], repoFile);
         }
 
         // Show terminal panel if AI response contains shell commands
@@ -1751,28 +1764,71 @@ function finalizeReadPanel(p, count) {
     p.statusEl.textContent = `Read ${count} file${count !== 1 ? 's' : ''}`;
 }
 
-function createEditingPanel(filename) {
-    const p = makePanelEl('editing-panel', null, null, null, SVG_EDIT_PEN, `Editing: ${filename}`);
-    addEditingFile(p, filename);
+function findRepoFileMatch(filename) {
+    if (!filename || repoContextFiles.length === 0) return null;
+    const lower = filename.toLowerCase();
+    return repoContextFiles.find(f =>
+        f.path === filename ||
+        f.path.split('/').pop() === filename ||
+        f.path.toLowerCase() === lower ||
+        f.path.split('/').pop().toLowerCase() === lower
+    ) || null;
+}
+
+function extractLargestCodeBlock(text) {
+    const matches = [...text.matchAll(/```[\w-]*\n([\s\S]*?)```/g)];
+    if (!matches.length) return null;
+    return matches.reduce((a, b) => b[1].length > a[1].length ? b : a)[1];
+}
+
+function buildEditingFileItem(filename, repoFile) {
+    const item = document.createElement('div');
+    item.className = 'editing-file-item';
+    const icon = document.createElement('span');
+    icon.innerHTML = SVG_EDIT_PEN;
+    item.appendChild(icon);
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'editing-file-name';
+    nameSpan.textContent = '\u00a0' + (filename || 'untitled');
+    item.appendChild(nameSpan);
+    if (repoFile) {
+        const link = document.createElement('a');
+        link.className = 'editing-gh-link';
+        link.href = `https://github.com/${repoFile.owner}/${repoFile.repo}/blob/HEAD/${repoFile.path}`;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.title = `View on GitHub: ${repoFile.owner}/${repoFile.repo}/${repoFile.path}`;
+        const SVG_GH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>`;
+        link.innerHTML = SVG_GH + ' ' + repoFile.owner + '/' + repoFile.repo.split('/').pop() + '/' + repoFile.path.split('/').pop();
+        item.appendChild(link);
+    }
+    return item;
+}
+
+function createEditingPanel(filename, repoFile) {
+    const safeFilename = filename || 'untitled';
+    const p = makePanelEl('editing-panel', null, null, null, SVG_EDIT_PEN, `Editing: ${safeFilename}`);
+    const item = buildEditingFileItem(safeFilename, repoFile);
+    p.body.appendChild(item);
+    scrollToBottom();
     return p;
 }
 
-function addEditingFile(p, filename) {
-    const item = document.createElement('div');
-    item.className = 'editing-file-item';
-    item.innerHTML = SVG_EDIT_PEN + `&nbsp;${filename}`;
+function addEditingFile(p, filename, repoFile) {
+    const item = buildEditingFileItem(filename || 'untitled', repoFile);
     p.body.appendChild(item);
     scrollToBottom();
 }
 
-function finalizeEditingPanel(p, files) {
+function finalizeEditingPanel(p, files, repoFile) {
+    const safeFiles = files.map(f => f || 'untitled');
     p.el.classList.add('done', 'collapsed');
-    p.statusEl.textContent = `Edited ${files.join(', ')}`;
+    p.statusEl.textContent = `Edited ${safeFiles.join(', ')}`;
     const existing = p.body.querySelectorAll('.editing-file-item');
-    if (existing.length === 1 && files.length >= 1) {
-        existing[0].innerHTML = SVG_EDIT_PEN + `&nbsp;${files[0]}`;
+    if (existing.length >= 1 && safeFiles.length >= 1) {
+        existing[0].replaceWith(buildEditingFileItem(safeFiles[0], repoFile));
     } else if (existing.length === 0) {
-        files.forEach(f => addEditingFile(p, f));
+        safeFiles.forEach(f => addEditingFile(p, f, repoFile));
     }
 }
 
