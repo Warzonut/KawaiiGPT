@@ -4,8 +4,8 @@
 type IconEntry = {
   label: string;
   filename: string;
-  icon: string; // SVG filename (without extension)
-  ext?: string; // file extension shown in badge
+  icon: string;
+  ext?: string;
 };
 
 const webIcons: IconEntry[] = [
@@ -21,6 +21,7 @@ const webIcons: IconEntry[] = [
   { label: "GraphQL", filename: "schema.graphql", icon: "graphql", ext: "gql" },
   { label: "SVG", filename: "icon.svg", icon: "svg", ext: "svg" },
   { label: "XML", filename: "data.xml", icon: "xml", ext: "xml" },
+  { label: "WebAssembly", filename: "module.wasm", icon: "webassembly", ext: "wasm" },
 ];
 
 const frameworkIcons: IconEntry[] = [
@@ -28,14 +29,56 @@ const frameworkIcons: IconEntry[] = [
   { label: "Astro", filename: "index.astro", icon: "astro", ext: "astro" },
   { label: "Next.js", filename: "page.tsx", icon: "next" },
   { label: "Nuxt", filename: "nuxt.config.ts", icon: "nuxt" },
+  { label: "Remix", filename: "root.tsx", icon: "remix" },
+  { label: "Gatsby", filename: "gatsby-config.js", icon: "gatsby" },
+  { label: "Qwik", filename: "root.tsx", icon: "qwik" },
+  { label: "Blitz", filename: "blitz.config.ts", icon: "blitz" },
   { label: "Vite", filename: "vite.config.ts", icon: "vite" },
   { label: "Webpack", filename: "webpack.config.js", icon: "webpack" },
+  { label: "Tailwind", filename: "tailwind.config.ts", icon: "tailwindcss" },
+  { label: "Storybook", filename: ".storybook", icon: "storybook" },
+  { label: "Nest.js", filename: "app.module.ts", icon: "nest" },
+  { label: "Django", filename: "views.py", icon: "django" },
+  { label: "Tauri", filename: "tauri.conf.json", icon: "tauri" },
+  { label: "Ionic", filename: "ionic.config.json", icon: "ionic" },
+  { label: "Capacitor", filename: "capacitor.config.ts", icon: "capacitor" },
+  { label: "Stencil", filename: "stencil.config.ts", icon: "stencil" },
+  { label: "Biome", filename: "biome.json", icon: "biome" },
+  { label: "Prisma", filename: "schema.prisma", icon: "prisma" },
+  { label: "Drizzle", filename: "drizzle.config.ts", icon: "drizzle" },
+];
+
+const testingIcons: IconEntry[] = [
   { label: "Jest", filename: "app.test.ts", icon: "jest", ext: "test" },
   { label: "Vitest", filename: "vitest.config.ts", icon: "vitest" },
+  { label: "Playwright", filename: "playwright.config.ts", icon: "playwright" },
+  { label: "Cypress", filename: "cypress.config.ts", icon: "cypress" },
   { label: "ESLint", filename: ".eslintrc.json", icon: "eslint" },
   { label: "Prettier", filename: ".prettierrc", icon: "prettier" },
+];
+
+const aiIcons: IconEntry[] = [
+  { label: "Claude", filename: "claude.md", icon: "claude" },
+  { label: "Copilot", filename: ".github/copilot", icon: "copilot" },
+  { label: "Cursor", filename: ".cursorrules", icon: "cursor" },
+  { label: "Cline", filename: ".clinerules", icon: "cline" },
+  { label: "CodeRabbit", filename: ".coderabbit.yaml", icon: "coderabbit-ai" },
+];
+
+const cloudIcons: IconEntry[] = [
+  { label: "Vercel", filename: "vercel.json", icon: "vercel" },
+  { label: "Netlify", filename: "netlify.toml", icon: "netlify" },
+  { label: "Heroku", filename: "Procfile", icon: "heroku" },
+  { label: "Azure", filename: "azure-pipelines.yml", icon: "azure" },
+  { label: "GCP", filename: "app.yaml", icon: "gcp" },
+  { label: "Zeabur", filename: "zbpack.json", icon: "zeabur" },
+];
+
+const mobileIcons: IconEntry[] = [
+  { label: "Android", filename: "AndroidManifest.xml", icon: "android" },
   { label: "Deno", filename: "main.ts", icon: "deno" },
   { label: "Bun", filename: "bun.lockb", icon: "bun" },
+  { label: "Arduino", filename: "sketch.ino", icon: "arduino", ext: "ino" },
 ];
 
 const systemsIcons: IconEntry[] = [
@@ -63,6 +106,22 @@ const systemsIcons: IconEntry[] = [
   { label: "Clojure", filename: "core.clj", icon: "clojure", ext: "clj" },
   { label: "Elm", filename: "Main.elm", icon: "elm", ext: "elm" },
   { label: "CoffeeScript", filename: "app.coffee", icon: "coffee", ext: "coffee" },
+  { label: "Gleam", filename: "main.gleam", icon: "gleam", ext: "gleam" },
+  { label: "Mojo", filename: "main.mojo", icon: "mojo", ext: "mojo" },
+  { label: "OCaml", filename: "main.ml", icon: "ocaml", ext: "ml" },
+  { label: "R", filename: "analysis.r", icon: "r", ext: "r" },
+  { label: "V", filename: "main.v", icon: "vlang", ext: "v" },
+  { label: "Nim", filename: "main.nim", icon: "nim", ext: "nim" },
+  { label: "Crystal", filename: "main.cr", icon: "crystal", ext: "cr" },
+  { label: "Ada", filename: "main.adb", icon: "ada", ext: "adb" },
+  { label: "D", filename: "app.d", icon: "d", ext: "d" },
+  { label: "Odin", filename: "main.odin", icon: "odin", ext: "odin" },
+  { label: "Grain", filename: "main.gr", icon: "grain", ext: "gr" },
+  { label: "PureScript", filename: "Main.purs", icon: "purescript", ext: "purs" },
+  { label: "Vala", filename: "app.vala", icon: "vala", ext: "vala" },
+  { label: "Ballerina", filename: "main.bal", icon: "ballerina", ext: "bal" },
+  { label: "COBOL", filename: "MAIN.CBL", icon: "cobol", ext: "cbl" },
+  { label: "Fortran", filename: "main.f90", icon: "fortran", ext: "f90" },
 ];
 
 const configIcons: IconEntry[] = [
@@ -90,7 +149,7 @@ const infraIcons: IconEntry[] = [
   { label: "npm", filename: "package.json", icon: "npm" },
   { label: "Yarn", filename: "yarn.lock", icon: "yarn" },
   { label: "pnpm", filename: "pnpm-lock.yaml", icon: "pnpm" },
-  { label: "Bun", filename: "bun.lockb", icon: "bun" },
+  { label: "Bun lock", filename: "bun.lockb", icon: "bun" },
 ];
 
 function IconCard({ label, filename, icon, ext }: IconEntry) {
@@ -174,7 +233,11 @@ function IconCard({ label, filename, icon, ext }: IconEntry) {
 
 const sections = [
   { title: "Web", icons: webIcons },
-  { title: "Frameworks & Runtimes", icons: frameworkIcons },
+  { title: "Frameworks & Meta-Frameworks", icons: frameworkIcons },
+  { title: "Testing & Linting", icons: testingIcons },
+  { title: "AI Tools", icons: aiIcons },
+  { title: "Cloud & Hosting", icons: cloudIcons },
+  { title: "Runtimes & Platforms", icons: mobileIcons },
   { title: "Systems & Backend", icons: systemsIcons },
   { title: "Config & Data", icons: configIcons },
   { title: "DevOps & Infrastructure", icons: infraIcons },
@@ -237,7 +300,7 @@ export function FileIcons() {
             }}
           >
             {section.icons.map((entry) => (
-              <IconCard key={entry.label} {...entry} />
+              <IconCard key={`${entry.label}-${entry.icon}`} {...entry} />
             ))}
           </div>
         </div>
