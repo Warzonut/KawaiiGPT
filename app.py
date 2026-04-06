@@ -34,7 +34,7 @@ else:
 # Total context window for the endpoint (input + output combined).
 # qwen-long supports up to 10M, but the API endpoint may enforce a lower limit (e.g. 1M).
 # Override with CONTEXT_LIMIT env var if your endpoint supports more.
-CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(10_000_000)))
+CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(1_000_000)))
 
 # Max tokens for a single completion response. Defaults to the full context limit;
 # the actual value sent per-request is clamped dynamically based on input size.
