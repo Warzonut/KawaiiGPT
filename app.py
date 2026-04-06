@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 # Provider selection: 'qwen' (Alibaba) or 'openrouter'
 PROVIDER = os.environ.get("PROVIDER", "qwen").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "magic/ltm-1")
+MODEL_NAME = os.environ.get("MODEL_NAME", "xiaomi/mimo-v2-pro")
 
 if PROVIDER == "qwen":
     # Expect the user to set QWEN_API_KEY and QWEN_API_URL (or AI_BASE_URL)
@@ -32,8 +32,8 @@ else:
     client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=BASE_URL)
 
 # Total context window for the endpoint (input + output combined).
-# Magic LTM-1 supports up to 5M tokens. Override with CONTEXT_LIMIT env var if needed.
-CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(5_000_000)))
+# Llama 4 Maverick supports up to 1M tokens. Override with CONTEXT_LIMIT env var if needed.
+CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(1_000_000)))
 
 # Max tokens for a single completion response. Defaults to the full context limit;
 # the actual value sent per-request is clamped dynamically based on input size.
