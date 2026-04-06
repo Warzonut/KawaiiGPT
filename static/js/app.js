@@ -1319,8 +1319,23 @@ async function sendMessage(text) {
         searchCtx = formatSearchContext(text, results);
     }
 
+    // Inject repository context files if any are loaded
+    const repoCtx = buildRepoContextStr();
+
     const urlText = buildMessageWithURLContext(text);
-    const userText = getModePrefix() + urlText + (searchCtx ? '\n\n' + searchCtx : '');
+    const userText = getModePrefix() + urlText
+        + (searchCtx ? '\n\n' + searchCtx : '')
+        + (repoCtx   ? '\n\n' + repoCtx   : '');
+
+    // Show Editing panel if this looks like a code generation request
+    let editingPanel = null;
+    const editFilename = guessFilenameFromText(text);
+    if (currentMode === 'code' || editFilename) {
+        const fname = editFilename || 'untitled';
+        editingPanel = createEditingPanel(fname);
+        messagesContainer.appendChild(editingPanel.el);
+        scrollToBottom();
+    }
 
     conversationHistory.push({ role: 'user', content: userText });
     showTypingIndicator('Thinking...');
@@ -1495,6 +1510,25 @@ async function sendMessage(text) {
         const msgDiv = bubble.closest('.message');
         if (msgDiv) addRetryButton(msgDiv);
 
+        // Finalize editing panel — detect actual filename from AI response
+        if (editingPanel) {
+            const codeFilename = guessFilenameFromCode(cleanText) || editFilename || 'untitled';
+            finalizeEditingPanel(editingPanel, [codeFilename]);
+        }
+
+        // Show terminal panel if AI response contains shell commands
+        const shellCmds = extractShellCommands(cleanText);
+        if (shellCmds.length > 0) {
+            const termPanel = createTerminalPanel(shellCmds);
+            const botMsgDiv = bubble.closest('.message');
+            if (botMsgDiv && botMsgDiv.nextSibling) {
+                messagesContainer.insertBefore(termPanel.el, botMsgDiv.nextSibling);
+            } else {
+                messagesContainer.appendChild(termPanel.el);
+            }
+            scrollToBottom();
+        }
+
         // In chat mode, inject a switch button when user asked for code
         if (currentMode === 'chat' && isCodeRequest(text)) {
             injectSwitchToCodeBtn(bubble, text);
@@ -1578,6 +1612,309 @@ userInput.addEventListener('keydown', (e) => {
 });
 
 userInput.addEventListener('input', () => { autoResize(); onInputURLDetect(); });
+
+// ── Copilot-style panels: Read, Editing, Terminal ─────────────────────────
+
+const SVG_READ = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M0 2.75A.75.75 0 01.75 2h14.5a.75.75 0 010 1.5H.75A.75.75 0 010 2.75zm0 5A.75.75 0 01.75 7h14.5a.75.75 0 010 1.5H.75A.75.75 0 010 7.75zm0 5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H.75a.75.75 0 01-.75-.75z"/></svg>`;
+const SVG_EDIT_PEN = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.445-.757l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81 3.428 11.13c-.035.035-.061.077-.075.122l-.63 2.202 2.202-.63a.25.25 0 00.122-.075l6.142-6.498z"/></svg>`;
+const SVG_TERM = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M1.5 2.75C1.5 1.784 2.284 1 3.25 1h9.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0112.75 15h-9.5A1.75 1.75 0 011.5 13.25V2.75zm1.75-.25a.25.25 0 00-.25.25v10.5c0 .138.112.25.25.25h9.5a.25.25 0 00.25-.25V2.75a.25.25 0 00-.25-.25h-9.5zM5.22 6.22a.75.75 0 00-1.06 1.06l1.97 1.97-1.97 1.97a.75.75 0 101.06 1.06l2.5-2.5a.75.75 0 000-1.06l-2.5-2.5zm4.03 5.53a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5z" clip-rule="evenodd"/></svg>`;
+
+function makePanelEl(cls, accentHdr, accentBorder, accentBg, iconSvg, initialStatus) {
+    const panel = document.createElement('div');
+    panel.className = cls;
+    const header = document.createElement('button');
+    header.className = `${cls}-header`;
+    header.addEventListener('click', () => panel.classList.toggle('collapsed'));
+    const icon = document.createElement('span');
+    icon.className = `${cls}-icon`;
+    icon.innerHTML = iconSvg;
+    const statusEl = document.createElement('span');
+    statusEl.className = `${cls}-status`;
+    statusEl.textContent = initialStatus;
+    const chevron = document.createElement('span');
+    chevron.className = `${cls}-chevron`;
+    chevron.innerHTML = SVG.chevronDown;
+    header.appendChild(icon); header.appendChild(statusEl); header.appendChild(chevron);
+    const body = document.createElement('div');
+    body.className = `${cls}-body`;
+    panel.appendChild(header); panel.appendChild(body);
+    return { el: panel, statusEl, body };
+}
+
+function createReadPanel(filenames) {
+    const p = makePanelEl('read-panel', null, null, null, SVG_READ,
+        filenames.length === 1 ? `Reading: ${filenames[0]}` : `Reading ${filenames.length} files`);
+    filenames.forEach(name => {
+        const item = document.createElement('div');
+        item.className = 'read-file-item';
+        item.innerHTML = SVG_READ + `&nbsp;${name}`;
+        p.body.appendChild(item);
+    });
+    return p;
+}
+
+function finalizeReadPanel(p, count) {
+    p.el.classList.add('done', 'collapsed');
+    p.statusEl.textContent = `Read ${count} file${count !== 1 ? 's' : ''}`;
+}
+
+function createEditingPanel(filename) {
+    return makePanelEl('editing-panel', null, null, null, SVG_EDIT_PEN, `Editing: ${filename}`);
+}
+
+function addEditingFile(p, filename) {
+    const item = document.createElement('div');
+    item.className = 'editing-file-item';
+    item.innerHTML = SVG_EDIT_PEN + `&nbsp;${filename}`;
+    p.body.appendChild(item);
+    scrollToBottom();
+}
+
+function finalizeEditingPanel(p, files) {
+    p.el.classList.add('done', 'collapsed');
+    p.statusEl.textContent = `Edited ${files.join(', ')}`;
+}
+
+function createTerminalPanel(commands) {
+    const p = makePanelEl('terminal-panel', null, null, null, SVG_TERM, `Terminal (${commands.length} command${commands.length !== 1 ? 's' : ''})`);
+    commands.forEach(cmd => {
+        const line = document.createElement('div');
+        line.className = 'terminal-line';
+        const prompt = document.createElement('span');
+        prompt.className = 'terminal-prompt';
+        prompt.textContent = '$ ';
+        const text = document.createElement('span');
+        text.textContent = cmd;
+        line.appendChild(prompt);
+        line.appendChild(text);
+        p.body.appendChild(line);
+    });
+    return p;
+}
+
+function extractShellCommands(text) {
+    const shellLangs = /^(bash|sh|shell|zsh|cmd|powershell|ps1|terminal|console|command)$/i;
+    const fenceRe = /```([\w.-]*)\n([\s\S]*?)```/g;
+    const cmds = [];
+    let m;
+    while ((m = fenceRe.exec(text)) !== null) {
+        const lang = m[1].trim();
+        if (shellLangs.test(lang)) {
+            const lines = m[2].split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+            cmds.push(...lines.slice(0, 6));
+        }
+    }
+    return cmds;
+}
+
+function guessFilenameFromText(text) {
+    // Check for explicit mention like "write server.py" or "create index.html"
+    const explicit = text.match(/(?:write|create|edit|make|build|generate|update)\s+[`"]?([\w./\\-]+\.\w+)[`"]?/i);
+    if (explicit) return explicit[1].split('/').pop().split('\\').pop();
+    // Check for "filename.ext:" pattern
+    const fenced = text.match(/`([\w./\\-]+\.\w+)`/);
+    if (fenced) return fenced[1].split('/').pop();
+    return null;
+}
+
+function guessFilenameFromCode(codeText) {
+    // Look for ``` lang filename.ext pattern
+    const m = codeText.match(/```[\w-]+ ([\w./\\-]+\.\w+)/);
+    if (m) return m[1].split('/').pop();
+    // Look for shebang
+    if (/^#!.*\/python/.test(codeText)) return 'script.py';
+    if (/^#!.*\/node/.test(codeText)) return 'script.js';
+    if (/^#!.*\/bash/.test(codeText)) return 'script.sh';
+    return null;
+}
+
+// ── Repo context store ────────────────────────────────────────────────────
+let repoContextFiles = []; // [{path, content, owner, repo}]
+
+function buildRepoContextStr() {
+    if (repoContextFiles.length === 0) return '';
+    const lines = ['[Repository context files loaded by user]'];
+    repoContextFiles.forEach(f => {
+        lines.push(`\n--- ${f.owner}/${f.repo}: ${f.path} ---`);
+        lines.push(f.content.slice(0, 4000));
+        if (f.content.length > 4000) lines.push('... [truncated]');
+    });
+    lines.push('[End of repository context]');
+    return lines.join('\n');
+}
+
+function renderContextFileBadges() {
+    const container = document.getElementById('copilotContextFiles');
+    if (!container) return;
+    container.innerHTML = '';
+    repoContextFiles.forEach((f, idx) => {
+        const badge = document.createElement('span');
+        badge.className = 'context-file-badge';
+        const name = f.path.split('/').pop();
+        badge.textContent = name;
+        badge.title = `${f.owner}/${f.repo}:${f.path}`;
+        const rm = document.createElement('span');
+        rm.className = 'cfb-remove';
+        rm.textContent = '×';
+        rm.addEventListener('click', (e) => { e.stopPropagation(); repoContextFiles.splice(idx, 1); renderContextFileBadges(); });
+        badge.appendChild(rm);
+        container.appendChild(badge);
+    });
+    const sep = document.getElementById('copilotToolbar')?.querySelector('.copilot-toolbar-sep');
+    if (sep) sep.style.display = repoContextFiles.length ? '' : 'none';
+}
+
+// ── Import Repo Modal ─────────────────────────────────────────────────────
+const importRepoModal = document.getElementById('importRepoModal');
+const importRepoBtn   = document.getElementById('importRepoBtn');
+const importRepoClose = document.getElementById('importRepoClose');
+const repoUrlInput    = document.getElementById('repoUrlInput');
+const repoFetchBtn    = document.getElementById('repoFetchBtn');
+const repoLoading     = document.getElementById('repoLoading');
+const repoError       = document.getElementById('repoError');
+const repoTreeContainer = document.getElementById('repoTreeContainer');
+const repoTreeHeader  = document.getElementById('repoTreeHeader');
+const repoTreeList    = document.getElementById('repoTreeList');
+const repoTreeSearch  = document.getElementById('repoTreeSearch');
+const selectedFilesBar = document.getElementById('selectedFilesBar');
+const selectedFileCount = document.getElementById('selectedFileCount');
+const addFilesToContextBtn = document.getElementById('addFilesToContextBtn');
+
+let currentRepoData = null;    // {owner, repo, branch, files}
+let selectedFilePaths = new Set();
+
+function openImportRepoModal() {
+    if (importRepoModal) importRepoModal.style.display = 'flex';
+    setTimeout(() => repoUrlInput?.focus(), 50);
+}
+
+function closeImportRepoModal() {
+    if (importRepoModal) importRepoModal.style.display = 'none';
+}
+
+function showRepoLoading(v) {
+    if (repoLoading) repoLoading.style.display = v ? 'flex' : 'none';
+}
+function showRepoError(msg) {
+    if (repoError) { repoError.textContent = msg; repoError.style.display = msg ? '' : 'none'; }
+}
+function showRepoTree(v) {
+    if (repoTreeContainer) repoTreeContainer.style.display = v ? 'flex' : 'none';
+}
+
+function renderFileTree(filter = '') {
+    if (!repoTreeList || !currentRepoData) return;
+    const q = filter.toLowerCase();
+    const blobs = currentRepoData.files.filter(f => f.type === 'blob' && (!q || f.path.toLowerCase().includes(q)));
+    repoTreeList.innerHTML = '';
+    blobs.slice(0, 200).forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'repo-tree-item' + (selectedFilePaths.has(f.path) ? ' selected' : '');
+        const icon = document.createElement('span');
+        icon.className = 'rti-icon';
+        icon.innerHTML = SVG_LINK_SM;
+        const pathEl = document.createElement('span');
+        pathEl.className = 'rti-path';
+        pathEl.textContent = f.path;
+        pathEl.title = f.path;
+        const sizeEl = document.createElement('span');
+        sizeEl.className = 'rti-size';
+        if (f.size > 0) sizeEl.textContent = f.size > 1024 ? `${(f.size/1024).toFixed(1)}k` : `${f.size}b`;
+        item.appendChild(icon); item.appendChild(pathEl); item.appendChild(sizeEl);
+        item.addEventListener('click', () => {
+            if (selectedFilePaths.has(f.path)) selectedFilePaths.delete(f.path);
+            else selectedFilePaths.add(f.path);
+            renderFileTree(filter);
+            updateSelectedBar();
+        });
+        repoTreeList.appendChild(item);
+    });
+    if (blobs.length === 0) {
+        repoTreeList.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text-muted)">No files found</div>';
+    }
+}
+
+function updateSelectedBar() {
+    const n = selectedFilePaths.size;
+    if (selectedFilesBar) selectedFilesBar.style.display = n > 0 ? 'flex' : 'none';
+    if (selectedFileCount) selectedFileCount.textContent = `${n} file${n !== 1 ? 's' : ''} selected`;
+}
+
+async function fetchRepo() {
+    const url = repoUrlInput?.value.trim();
+    if (!url) return;
+    showRepoError('');
+    showRepoLoading(true);
+    showRepoTree(false);
+    if (repoFetchBtn) repoFetchBtn.disabled = true;
+    selectedFilePaths.clear();
+    currentRepoData = null;
+    try {
+        const resp = await fetch('/github-tree', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ repo_url: url })
+        });
+        const data = await resp.json();
+        if (data.error) { showRepoError(data.error); return; }
+        currentRepoData = data;
+        if (repoTreeHeader) repoTreeHeader.textContent = `${data.owner}/${data.repo} · ${data.branch} · ${data.files.filter(f=>f.type==='blob').length} files${data.truncated ? ' (truncated)' : ''}`;
+        renderFileTree();
+        showRepoTree(true);
+    } catch (e) {
+        showRepoError('Failed to fetch repo: ' + e.message);
+    } finally {
+        showRepoLoading(false);
+        if (repoFetchBtn) repoFetchBtn.disabled = false;
+    }
+}
+
+async function addSelectedFilesToContext() {
+    if (!currentRepoData || selectedFilePaths.size === 0) return;
+    const { owner, repo, branch } = currentRepoData;
+    const filenames = [...selectedFilePaths];
+
+    if (addFilesToContextBtn) { addFilesToContextBtn.textContent = 'Loading...'; addFilesToContextBtn.disabled = true; }
+
+    // Show read panel in chat
+    const readPanel = createReadPanel(filenames.map(p => p.split('/').pop()));
+    messagesContainer.appendChild(readPanel.el);
+    scrollToBottom();
+
+    const fetched = [];
+    for (const path of filenames) {
+        const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+        try {
+            const resp = await fetch('/fetch-url', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ url: rawUrl })
+            });
+            const data = await resp.json();
+            const content = data.text || '';
+            repoContextFiles.push({ path, content, owner, repo });
+            fetched.push(path);
+        } catch {}
+    }
+
+    finalizeReadPanel(readPanel, fetched.length);
+    renderContextFileBadges();
+    selectedFilePaths.clear();
+    updateSelectedBar();
+    closeImportRepoModal();
+
+    if (addFilesToContextBtn) { addFilesToContextBtn.textContent = 'Add to Context'; addFilesToContextBtn.disabled = false; }
+}
+
+if (importRepoBtn) importRepoBtn.addEventListener('click', openImportRepoModal);
+if (importRepoClose) importRepoClose.addEventListener('click', closeImportRepoModal);
+if (importRepoModal) importRepoModal.addEventListener('click', (e) => { if (e.target === importRepoModal) closeImportRepoModal(); });
+if (repoFetchBtn) repoFetchBtn.addEventListener('click', fetchRepo);
+if (repoUrlInput) repoUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchRepo(); });
+if (repoTreeSearch) repoTreeSearch.addEventListener('input', () => renderFileTree(repoTreeSearch.value));
+if (addFilesToContextBtn) addFilesToContextBtn.addEventListener('click', addSelectedFilesToContext);
+
+renderContextFileBadges();
 
 // ── Search toggle ──────────────────────────────────────────────────────────
 const searchToggleBtn = document.getElementById('searchToggle');
