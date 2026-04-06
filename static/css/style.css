@@ -1435,6 +1435,49 @@ textarea#userInput::-webkit-scrollbar-thumb {
 
 .context-file-badge .cfb-remove:hover { opacity: 1; }
 
+/* ── File-type chips ─────────────────────────────────────────────────────── */
+.ft-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 16px;
+    min-width: 28px;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: monospace;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1;
+    color: #fff;
+    opacity: 0.92;
+}
+.ft-html  { background: #e34c26; }
+.ft-css   { background: #264de4; }
+.ft-js    { background: #f7df1e; color: #222; }
+.ft-jsx   { background: #61dafb; color: #222; }
+.ft-ts    { background: #007acc; }
+.ft-tsx   { background: #007acc; }
+.ft-py    { background: #3572a5; }
+.ft-json  { background: #8bc34a; color: #222; }
+.ft-svg   { background: #ff9800; color: #222; }
+.ft-md    { background: #9c27b0; }
+.ft-vue   { background: #42b883; color: #222; }
+.ft-go    { background: #00acd7; color: #222; }
+.ft-rs    { background: #dea584; color: #222; }
+.ft-rb    { background: #701516; }
+.ft-php   { background: #4f5d95; }
+.ft-java  { background: #b07219; }
+.ft-sh    { background: #89e051; color: #222; }
+.ft-yml   { background: #cb171e; }
+.ft-xml   { background: #f60; color: #222; }
+.ft-txt   { background: #666; }
+.ft-env   { background: #ecc94b; color: #222; }
+.ft-lock  { background: #78716c; }
+.ft-default { background: #555; }
+
 .copilot-gh-action-btn {
     display: inline-flex;
     align-items: center;
@@ -1705,7 +1748,7 @@ textarea#userInput::-webkit-scrollbar-thumb {
 .repo-tree-item:hover { background: var(--bg-card); color: var(--text-primary); }
 .repo-tree-item.selected { background: var(--accent-dim); color: var(--accent); }
 .repo-tree-item.is-dir { color: var(--text-muted); cursor: default; }
-.repo-tree-item .rti-icon { flex-shrink: 0; opacity: 0.6; }
+.repo-tree-item .rti-icon { flex-shrink: 0; }
 .repo-tree-item .rti-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .repo-tree-item .rti-size { color: var(--text-muted); font-size: 10px; }
 
