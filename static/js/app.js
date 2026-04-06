@@ -1873,6 +1873,8 @@ function createTerminalPanel(groups) {
             outputEl.className = 'terminal-output';
             outputEl.textContent = 'Running…';
             let combined = '';
+            let hadError = false;
+            let errorOutput = '';
             try {
                 for (const cmd of commands) {
                     const resp = await fetch('/exec', {
@@ -1885,21 +1887,34 @@ function createTerminalPanel(groups) {
                         combined += `$ ${cmd}\nError: ${data.error}\n`;
                         outputEl.textContent = combined.trim();
                         outputEl.className = 'terminal-output error';
+                        hadError = true;
+                        errorOutput = combined.trim();
                         break;
                     }
                     const out = (data.stdout || '') + (data.stderr ? `[stderr] ${data.stderr}` : '');
                     combined += `$ ${cmd}\n${out.trim() || `(exit ${data.returncode})`}\n\n`;
                     outputEl.textContent = combined.trim();
-                    outputEl.className = `terminal-output ${data.returncode !== 0 ? 'error' : 'success'}`;
-                    if (data.returncode !== 0) break;
+                    if (data.returncode !== 0) {
+                        outputEl.className = 'terminal-output error';
+                        hadError = true;
+                        errorOutput = combined.trim();
+                        break;
+                    }
+                    outputEl.className = 'terminal-output success';
                 }
             } catch (e) {
                 outputEl.textContent = `Failed: ${e.message}`;
                 outputEl.className = 'terminal-output error';
+                hadError = true;
+                errorOutput = `Failed: ${e.message}`;
             } finally {
                 runBtn.disabled = false;
                 runBtn.innerHTML = RUN_SVG + ' Run';
                 scrollToBottom();
+            }
+            if (hadError && errorOutput) {
+                const fixMsg = `The terminal command failed with the following output:\n\`\`\`\n${errorOutput}\n\`\`\`\nPlease fix the error.`;
+                await sendMessage(fixMsg);
             }
         });
 
