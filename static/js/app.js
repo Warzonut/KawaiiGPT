@@ -1093,7 +1093,7 @@ async function fetchGithubFile(url) {
 // ── Search panel UI ────────────────────────────────────────────────────────
 const SVG_SEARCH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/></svg>`;
 const SVG_LINK_SM = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path fill-rule="evenodd" d="M8.914 6.025a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95l-2 2a3.5 3.5 0 0 1-4.95-4.95l1.17-1.17a.75.75 0 0 1 1.06 1.06L3.084 9.086a2 2 0 0 0 2.829 2.828l2-2a2 2 0 0 0 0-2.828.75.75 0 0 1 0-1.06Zm-3.84 1.96a.75.75 0 0 1-1.061 0 3.5 3.5 0 0 1 0-4.95l2-2a3.5 3.5 0 0 1 4.95 4.95l-1.17 1.17a.75.75 0 1 1-1.06-1.06l1.17-1.17a2 2 0 0 0-2.829-2.828l-2 2a2 2 0 0 0 0 2.828.75.75 0 0 1 0 1.06Z" clip-rule="evenodd"/></svg>`;
-const SVG_GH = `<img src="/static/icons/github-actions-workflow.svg" width="13" height="13" style="vertical-align:-2px;opacity:0.85;" alt="GitHub">`;
+const SVG_GH = `<img src="/static/icons/git.svg" width="13" height="13" style="vertical-align:-2px;opacity:0.85;" alt="GitHub">`;
 
 function createSearchPanel(query) {
     const panel = document.createElement('div');
