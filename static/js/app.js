@@ -921,6 +921,8 @@ function startNewChat() {
     currentChatId = generateId();
     conversationHistory = [];
     displayMessages = [];
+    repoContextFiles = [];
+    renderContextFileBadges();
     clearChatUI();
     renderHistoryList();
 }
