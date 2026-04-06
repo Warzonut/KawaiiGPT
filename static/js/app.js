@@ -1134,7 +1134,10 @@ function addSearchResultItem(sp, result) {
 
     const icon = document.createElement('span');
     icon.className = 'search-result-icon';
-    icon.innerHTML = SVG_LINK_SM;
+    const urlPath = (result.url || '').split('?')[0].split('#')[0];
+    const urlExt = urlPath.includes('.') ? urlPath.split('.').pop().toLowerCase() : '';
+    const webExts = new Set(['html','htm','css','js','ts','json','xml','md','svg','py','php','rb','go','rs']);
+    icon.innerHTML = webExts.has(urlExt) ? getFileIcon(urlPath, 13) : SVG_LINK_SM;
 
     const textDiv = document.createElement('div');
     textDiv.className = 'search-result-text';
@@ -2039,7 +2042,7 @@ function renderFileTree(filter = '') {
         item.className = 'repo-tree-item' + (selectedFilePaths.has(f.path) ? ' selected' : '');
         const icon = document.createElement('span');
         icon.className = 'rti-icon';
-        icon.innerHTML = SVG_LINK_SM;
+        icon.innerHTML = getFileIcon(f.path, 14);
         const pathEl = document.createElement('span');
         pathEl.className = 'rti-path';
         pathEl.textContent = f.path;
