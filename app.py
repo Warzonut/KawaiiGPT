@@ -306,17 +306,19 @@ def chat():
 
     full_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
 
-    # Estimate input token count (~4 chars per token) and clamp output so
-    # input + output stays within the endpoint's total context limit.
+    # Estimate input token count and clamp output so input + output stays within
+    # the endpoint's total context limit. Use 2 chars/token (conservative for code)
+    # plus a 25% safety buffer to avoid overruns.
     estimated_input_chars = sum(
         len(m.get("content", "") if isinstance(m.get("content"), str) else "")
         for m in full_messages
     )
-    estimated_input_tokens = max(1, estimated_input_chars // 4)
-    headroom = max(1, CONTEXT_LIMIT - estimated_input_tokens)
+    estimated_input_tokens = max(1, estimated_input_chars // 2)
+    safe_input_tokens = int(estimated_input_tokens * 1.25)
+    headroom = max(1, CONTEXT_LIMIT - safe_input_tokens)
     if effective_max > headroom:
         effective_max = headroom
-        print(f"[DEBUG] clamped effective_max to {effective_max} (estimated_input_tokens={estimated_input_tokens})")
+        print(f"[DEBUG] clamped effective_max to {effective_max} (estimated_input_tokens={estimated_input_tokens}, safe_input_tokens={safe_input_tokens})")
 
     # DEBUG: surface the requested/effective max tokens to logs and response headers
     print(f"[DEBUG] requested_max={requested_max} effective_max={effective_max}")
