@@ -31,10 +31,14 @@ else:
         raise RuntimeError("Missing OPENROUTER_API_KEY")
     client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=BASE_URL)
 
-# Max tokens for completions (configurable via env var). Default: model limit.
-# Note: many models enforce a hard upper limit; setting this does not bypass model limits.
-# qwen-long has a 10M total context window. Default max output tokens to leave room for large inputs.
-DEFAULT_MODEL_MAX_TOKENS = 10000000
+# Total context window for the endpoint (input + output combined).
+# qwen-long supports up to 10M, but the API endpoint may enforce a lower limit (e.g. 1M).
+# Override with CONTEXT_LIMIT env var if your endpoint supports more.
+CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(10_000_000)))
+
+# Max tokens for a single completion response. Defaults to the full context limit;
+# the actual value sent per-request is clamped dynamically based on input size.
+DEFAULT_MODEL_MAX_TOKENS = CONTEXT_LIMIT
 MODEL_MAX_TOKENS = int(os.environ.get("MODEL_MAX_TOKENS", str(DEFAULT_MODEL_MAX_TOKENS)))
 MAX_TOKENS = min(int(os.environ.get("MAX_TOKENS", str(MODEL_MAX_TOKENS))), MODEL_MAX_TOKENS)
 
@@ -302,6 +306,18 @@ def chat():
         effective_max = MAX_TOKENS
 
     full_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+
+    # Estimate input token count (~4 chars per token) and clamp output so
+    # input + output stays within the endpoint's total context limit.
+    estimated_input_chars = sum(
+        len(m.get("content", "") if isinstance(m.get("content"), str) else "")
+        for m in full_messages
+    )
+    estimated_input_tokens = max(1, estimated_input_chars // 4)
+    headroom = max(1, CONTEXT_LIMIT - estimated_input_tokens)
+    if effective_max > headroom:
+        effective_max = headroom
+        print(f"[DEBUG] clamped effective_max to {effective_max} (estimated_input_tokens={estimated_input_tokens})")
 
     # DEBUG: surface the requested/effective max tokens to logs and response headers
     print(f"[DEBUG] requested_max={requested_max} effective_max={effective_max}")
