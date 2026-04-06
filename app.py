@@ -34,7 +34,7 @@ else:
 # Max tokens for completions (configurable via env var). Default: model limit.
 # Note: many models enforce a hard upper limit; setting this does not bypass model limits.
 # qwen-long has a 10M total context window. Default max output tokens to leave room for large inputs.
-DEFAULT_MODEL_MAX_TOKENS = 2000000
+DEFAULT_MODEL_MAX_TOKENS = 10000000
 MODEL_MAX_TOKENS = int(os.environ.get("MODEL_MAX_TOKENS", str(DEFAULT_MODEL_MAX_TOKENS)))
 MAX_TOKENS = min(int(os.environ.get("MAX_TOKENS", str(MODEL_MAX_TOKENS))), MODEL_MAX_TOKENS)
 
