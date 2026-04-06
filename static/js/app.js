@@ -1867,51 +1867,96 @@ function createTerminalPanel(groups) {
         runBtn.title = 'Run in terminal';
         runBtn.innerHTML = RUN_SVG + ' Run';
 
+        const isInstallCmd = cmd => /^\s*(pip3?\s+install|npm\s+install|npm\s+i\b|yarn\s+add|pnpm\s+(add|install)|apt(-get)?\s+install|brew\s+install|gem\s+install|cargo\s+add|go\s+get)/i.test(cmd);
+
         runBtn.addEventListener('click', async () => {
             runBtn.disabled = true;
             runBtn.innerHTML = '…';
             outputEl.className = 'terminal-output';
-            outputEl.textContent = 'Running…';
+            outputEl.textContent = '';
             let combined = '';
             let hadError = false;
             let errorOutput = '';
+
             try {
                 for (const cmd of commands) {
+                    const isInstall = isInstallCmd(cmd);
+                    combined += `$ ${cmd}\n`;
+                    outputEl.textContent = combined + (isInstall ? 'Installing…' : 'Running…');
+                    scrollToBottom();
+
                     const resp = await fetch('/exec', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ cmd })
                     });
-                    const data = await resp.json();
-                    if (data.error) {
-                        combined += `$ ${cmd}\nError: ${data.error}\n`;
+
+                    if (!resp.ok) {
+                        combined += `Error: HTTP ${resp.status}\n`;
                         outputEl.textContent = combined.trim();
                         outputEl.className = 'terminal-output error';
-                        hadError = true;
-                        errorOutput = combined.trim();
+                        hadError = true; errorOutput = combined.trim();
                         break;
                     }
-                    const out = (data.stdout || '') + (data.stderr ? `[stderr] ${data.stderr}` : '');
-                    combined += `$ ${cmd}\n${out.trim() || `(exit ${data.returncode})`}\n\n`;
+
+                    // Stream the response line by line
+                    const reader = resp.body.getReader();
+                    const dec = new TextDecoder();
+                    let buf = '';
+                    let returncode = null;
+                    let cmdOut = '';
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buf += dec.decode(value, { stream: true });
+                        const lines = buf.split('\n');
+                        buf = lines.pop();
+                        for (const line of lines) {
+                            if (line.startsWith('\x00RC=')) {
+                                returncode = parseInt(line.slice(4));
+                            } else {
+                                cmdOut += line + '\n';
+                                combined = combined.replace(/Installing…|Running…/, '');
+                                combined = combined.trimEnd() + '\n' + cmdOut;
+                                outputEl.textContent = combined.trim();
+                                scrollToBottom();
+                            }
+                        }
+                    }
+                    // handle leftover buffer
+                    if (buf.startsWith('\x00RC=')) returncode = parseInt(buf.slice(4));
+
+                    if (returncode === null) returncode = 0;
+                    if (!cmdOut.trim()) combined = combined.trimEnd() + `\n(exit ${returncode})\n`;
+                    combined += '\n';
                     outputEl.textContent = combined.trim();
-                    if (data.returncode !== 0) {
+
+                    if (returncode === 124) {
                         outputEl.className = 'terminal-output error';
-                        hadError = true;
-                        errorOutput = combined.trim();
+                        combined += 'Command timed out.\n';
+                        outputEl.textContent = combined.trim();
+                        hadError = true; errorOutput = combined.trim();
+                        break;
+                    }
+                    if (returncode !== 0) {
+                        outputEl.className = 'terminal-output error';
+                        hadError = true; errorOutput = combined.trim();
                         break;
                     }
                     outputEl.className = 'terminal-output success';
                 }
             } catch (e) {
-                outputEl.textContent = `Failed: ${e.message}`;
+                outputEl.textContent = (combined + `\nFailed: ${e.message}`).trim();
                 outputEl.className = 'terminal-output error';
                 hadError = true;
-                errorOutput = `Failed: ${e.message}`;
+                errorOutput = outputEl.textContent;
             } finally {
                 runBtn.disabled = false;
                 runBtn.innerHTML = RUN_SVG + ' Run';
                 scrollToBottom();
             }
+
             if (hadError && errorOutput) {
                 const fixMsg = `The terminal command failed with the following output:\n\`\`\`\n${errorOutput}\n\`\`\`\nPlease fix the error.`;
                 await sendMessage(fixMsg);

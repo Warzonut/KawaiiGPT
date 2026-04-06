@@ -291,26 +291,58 @@ def favicon():
 def index():
     return render_template("index.html", max_tokens=MAX_TOKENS, model_name=MODEL_NAME)
 
+_INSTALL_RE = re.compile(
+    r"^\s*(pip3?\s+install|npm\s+install|npm\s+i\b|yarn\s+add|pnpm\s+add|pnpm\s+install|"
+    r"apt(?:-get)?\s+install|brew\s+install|gem\s+install|cargo\s+add|go\s+get|"
+    r"composer\s+require|nuget\s+install|conda\s+install)",
+    re.IGNORECASE,
+)
+
+def _timeout_for(cmd: str) -> int:
+    return 180 if _INSTALL_RE.match(cmd) else 30
+
 @app.route("/exec", methods=["POST"])
 def exec_command():
-    """Execute a shell command and return its output."""
-    import subprocess
+    """Execute a shell command and stream its output line by line."""
+    import subprocess, shlex, threading, queue as _queue
     cmd = (request.json or {}).get("cmd", "").strip()
     if not cmd:
         return jsonify({"error": "No command"}), 400
-    try:
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=15
-        )
-        return jsonify({
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "returncode": result.returncode
-        })
-    except subprocess.TimeoutExpired:
-        return jsonify({"error": "Command timed out (15s)"}), 408
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
+    timeout = _timeout_for(cmd)
+
+    # Normalise pip/npm so they work in the Replit venv without interaction flags
+    normalised = cmd
+    if re.match(r"^\s*pip3?\s+install", cmd, re.IGNORECASE):
+        normalised = re.sub(r"^\s*pip3?", "pip", cmd, count=1)
+        if "--quiet" not in normalised and "-q" not in normalised:
+            normalised += " --quiet"
+    elif re.match(r"^\s*npm\s+install", cmd, re.IGNORECASE) or re.match(r"^\s*npm\s+i\b", cmd, re.IGNORECASE):
+        if "--no-fund" not in normalised:
+            normalised += " --no-fund"
+
+    def generate():
+        try:
+            proc = subprocess.Popen(
+                normalised, shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1
+            )
+            buf = []
+            # stream lines
+            for line in proc.stdout:
+                buf.append(line)
+                yield line
+            proc.wait(timeout=timeout)
+            # sentinel with returncode
+            yield f"\x00RC={proc.returncode}\n"
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            yield f"\x00RC=124\n"
+        except Exception as e:
+            yield f"\x00RC=1\nError: {e}\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/plain; charset=utf-8")
 
 @app.route("/chat", methods=["POST"])
 def chat():
