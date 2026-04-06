@@ -193,6 +193,64 @@ def github_tree_route():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/github-push", methods=["POST"])
+def github_push_route():
+    """Push files back to GitHub using the Contents API."""
+    import base64
+    data = request.json or {}
+    token   = data.get("token", "").strip()
+    owner   = data.get("owner", "").strip()
+    repo    = data.get("repo", "").strip()
+    branch  = data.get("branch", "main").strip()
+    message = data.get("message", "Update via KawaiiGPT").strip() or "Update via KawaiiGPT"
+    files   = data.get("files", [])  # [{path, content}]
+    if not token or not owner or not repo or not files:
+        return jsonify({"error": "Missing required fields (token, owner, repo, files)"}), 400
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+    results = []
+    for f in files:
+        path    = f.get("path", "").lstrip("/")
+        content = f.get("content", "")
+        if not path:
+            continue
+        # Fetch current SHA (needed for updates)
+        sha = None
+        try:
+            r = http_requests.get(
+                f"https://api.github.com/repos/{owner}/{repo}/contents/{path}",
+                headers=headers,
+                params={"ref": branch},
+                timeout=10
+            )
+            if r.ok:
+                sha = r.json().get("sha")
+        except Exception:
+            pass
+        encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
+        body = {"message": message, "content": encoded, "branch": branch}
+        if sha:
+            body["sha"] = sha
+        try:
+            pr = http_requests.put(
+                f"https://api.github.com/repos/{owner}/{repo}/contents/{path}",
+                headers=headers,
+                json=body,
+                timeout=15
+            )
+            results.append({
+                "path": path,
+                "ok": pr.ok,
+                "status": pr.status_code,
+                "error": pr.json().get("message") if not pr.ok else None
+            })
+        except Exception as e:
+            results.append({"path": path, "ok": False, "error": str(e)})
+    return jsonify({"results": results, "success": all(r["ok"] for r in results)})
+
 @app.route("/fetch-url", methods=["POST"])
 def fetch_url_route():
     url = (request.json or {}).get("url", "")

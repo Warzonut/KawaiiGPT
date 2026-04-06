@@ -1760,8 +1760,13 @@ function renderContextFileBadges() {
         badge.appendChild(rm);
         container.appendChild(badge);
     });
+    const hasFiles = repoContextFiles.length > 0;
     const sep = document.getElementById('copilotToolbar')?.querySelector('.copilot-toolbar-sep');
-    if (sep) sep.style.display = repoContextFiles.length ? '' : 'none';
+    if (sep) sep.style.display = hasFiles ? '' : 'none';
+    const pullBtn = document.getElementById('githubPullBtn');
+    const pushBtn = document.getElementById('githubPushBtn');
+    if (pullBtn) pullBtn.style.display = hasFiles ? '' : 'none';
+    if (pushBtn) pushBtn.style.display = hasFiles ? '' : 'none';
 }
 
 // ── Import Repo Modal ─────────────────────────────────────────────────────
@@ -1781,7 +1786,7 @@ const selectedFileCount = document.getElementById('selectedFileCount');
 const addFilesToContextBtn = document.getElementById('addFilesToContextBtn');
 const importAllBtn         = document.getElementById('importAllBtn');
 
-const IMPORT_ALL_MAX = 30; // max files imported at once to avoid overloading context
+const IMPORT_ALL_MAX = 200; // max files imported at once
 
 let currentRepoData = null;    // {owner, repo, branch, files}
 let selectedFilePaths = new Set();
@@ -1961,6 +1966,148 @@ if (repoUrlInput) repoUrlInput.addEventListener('keydown', e => { if (e.key === 
 if (repoTreeSearch) repoTreeSearch.addEventListener('input', () => renderFileTree(repoTreeSearch.value));
 if (addFilesToContextBtn) addFilesToContextBtn.addEventListener('click', addSelectedFilesToContext);
 if (importAllBtn) importAllBtn.addEventListener('click', importAllFiles);
+
+// ── Pull from GitHub ───────────────────────────────────────────────────────
+async function pullFromGitHub() {
+    if (repoContextFiles.length === 0) return;
+    const pullBtn = document.getElementById('githubPullBtn');
+    if (pullBtn) { pullBtn.textContent = 'Pulling...'; pullBtn.disabled = true; }
+
+    const filenames = repoContextFiles.map(f => f.path.split('/').pop());
+    const readPanel = createReadPanel(filenames);
+    messagesContainer.appendChild(readPanel.el);
+    scrollToBottom();
+
+    let fetched = 0;
+    for (let i = 0; i < repoContextFiles.length; i++) {
+        const f = repoContextFiles[i];
+        const rawUrl = `https://raw.githubusercontent.com/${f.owner}/${f.repo}/HEAD/${f.path}`;
+        try {
+            const resp = await fetch('/fetch-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: rawUrl })
+            });
+            const data = await resp.json();
+            if (data.text !== undefined) {
+                repoContextFiles[i] = { ...f, content: data.text };
+                fetched++;
+            }
+        } catch {}
+    }
+
+    finalizeReadPanel(readPanel, fetched);
+    if (pullBtn) { pullBtn.textContent = 'Pull'; pullBtn.disabled = false; }
+}
+
+// ── Push to GitHub ─────────────────────────────────────────────────────────
+const githubPushModal  = document.getElementById('githubPushModal');
+const githubPushClose  = document.getElementById('githubPushClose');
+const githubTokenInput = document.getElementById('githubTokenInput');
+const pushCommitMsg    = document.getElementById('pushCommitMsg');
+const pushFilesList    = document.getElementById('pushFilesList');
+const pushError        = document.getElementById('pushError');
+const pushSubmitBtn    = document.getElementById('pushSubmitBtn');
+
+function openPushModal() {
+    if (!githubPushModal) return;
+    // Restore saved token
+    const saved = localStorage.getItem('gh_token');
+    if (saved && githubTokenInput) githubTokenInput.value = saved;
+
+    // Populate file list
+    if (pushFilesList) {
+        pushFilesList.innerHTML = '';
+        repoContextFiles.forEach(f => {
+            const row = document.createElement('div');
+            row.className = 'push-file-row';
+            row.innerHTML = `<span class="pf-repo">${f.owner}/${f.repo}</span><span>${f.path}</span>`;
+            pushFilesList.appendChild(row);
+        });
+    }
+    if (pushError) { pushError.style.display = 'none'; pushError.textContent = ''; }
+    githubPushModal.style.display = 'flex';
+    setTimeout(() => pushCommitMsg?.focus(), 50);
+}
+
+function closePushModal() {
+    if (githubPushModal) githubPushModal.style.display = 'none';
+}
+
+async function executePush() {
+    const token = githubTokenInput?.value.trim();
+    const msg   = pushCommitMsg?.value.trim() || 'Update via KawaiiGPT';
+    if (!token) {
+        if (pushError) { pushError.textContent = 'Please enter a GitHub token.'; pushError.style.display = ''; }
+        return;
+    }
+    if (repoContextFiles.length === 0) return;
+
+    // Save token locally
+    localStorage.setItem('gh_token', token);
+
+    if (pushSubmitBtn) { pushSubmitBtn.textContent = 'Pushing...'; pushSubmitBtn.disabled = true; }
+    if (pushError) pushError.style.display = 'none';
+
+    // Group files by repo
+    const byRepo = {};
+    repoContextFiles.forEach(f => {
+        const key = `${f.owner}/${f.repo}`;
+        if (!byRepo[key]) byRepo[key] = { owner: f.owner, repo: f.repo, branch: 'HEAD', files: [] };
+        byRepo[key].files.push({ path: f.path, content: f.content });
+    });
+
+    // Update row statuses in modal
+    const rows = pushFilesList?.querySelectorAll('.push-file-row') || [];
+    let rowIdx = 0;
+    let allOk = true;
+
+    for (const key of Object.keys(byRepo)) {
+        const { owner, repo, files } = byRepo[key];
+        // Detect branch from currentRepoData if available
+        const branch = (currentRepoData?.owner === owner && currentRepoData?.repo === repo)
+            ? currentRepoData.branch : 'main';
+        try {
+            const resp = await fetch('/github-push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, owner, repo, branch, message: msg, files })
+            });
+            const data = await resp.json();
+            if (data.results) {
+                data.results.forEach(r => {
+                    if (rows[rowIdx]) {
+                        rows[rowIdx].classList.add(r.ok ? 'ok' : 'err');
+                        const st = document.createElement('span');
+                        st.className = 'pf-status';
+                        st.textContent = r.ok ? '✓ pushed' : `✗ ${r.error || 'error'}`;
+                        rows[rowIdx].appendChild(st);
+                        if (!r.ok) allOk = false;
+                    }
+                    rowIdx++;
+                });
+            } else {
+                if (pushError) { pushError.textContent = data.error || 'Push failed.'; pushError.style.display = ''; }
+                allOk = false;
+            }
+        } catch (e) {
+            if (pushError) { pushError.textContent = `Network error: ${e.message}`; pushError.style.display = ''; }
+            allOk = false;
+        }
+    }
+
+    if (pushSubmitBtn) { pushSubmitBtn.textContent = allOk ? '✓ Done' : 'Retry'; pushSubmitBtn.disabled = false; }
+    if (allOk) setTimeout(() => closePushModal(), 1200);
+}
+
+const githubPullBtn = document.getElementById('githubPullBtn');
+const githubPushBtn = document.getElementById('githubPushBtn');
+if (githubPullBtn) githubPullBtn.addEventListener('click', pullFromGitHub);
+if (githubPushBtn) githubPushBtn.addEventListener('click', openPushModal);
+if (githubPushClose) githubPushClose.addEventListener('click', closePushModal);
+if (githubPushModal) githubPushModal.addEventListener('click', (e) => { if (e.target === githubPushModal) closePushModal(); });
+if (pushSubmitBtn) pushSubmitBtn.addEventListener('click', executePush);
+if (pushCommitMsg) pushCommitMsg.addEventListener('keydown', e => { if (e.key === 'Enter') executePush(); });
 
 renderContextFileBadges();
 
