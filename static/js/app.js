@@ -1970,8 +1970,11 @@ function renderContextFileBadges() {
         const badge = document.createElement('span');
         badge.className = 'context-file-badge';
         const name = f.path.split('/').pop();
-        badge.textContent = name;
         badge.title = `${f.owner}/${f.repo}:${f.path}`;
+        badge.innerHTML = getFileIcon(f.path, 11);
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = name;
+        badge.appendChild(nameSpan);
         const rm = document.createElement('span');
         rm.className = 'cfb-remove';
         rm.textContent = '×';
