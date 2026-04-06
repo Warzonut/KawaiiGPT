@@ -711,7 +711,7 @@ body {
 
 /* ── Input Area ── */
 .input-area {
-    padding: 16px 20px 12px;
+    padding: 6px 20px 12px;
     border-top: 1px solid var(--border);
     background: var(--bg-primary);
     flex-shrink: 0;
@@ -1368,7 +1368,7 @@ textarea#userInput::-webkit-scrollbar-thumb {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 16px 2px;
+    padding: 4px 0 6px;
     flex-wrap: wrap;
 }
 
