@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 # Provider selection: 'qwen' (Alibaba) or 'openrouter'
 PROVIDER = os.environ.get("PROVIDER", "qwen").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "meta-llama/llama-4-scout:free")
+MODEL_NAME = os.environ.get("MODEL_NAME", "meta-llama/llama-4-maverick:free")
 
 if PROVIDER == "qwen":
     # Expect the user to set QWEN_API_KEY and QWEN_API_URL (or AI_BASE_URL)
@@ -33,7 +33,7 @@ else:
 
 # Total context window for the endpoint (input + output combined).
 # Llama 4 Scout supports up to 10M tokens. Override with CONTEXT_LIMIT env var if needed.
-CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(10_000_000)))
+CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(1_000_000)))
 
 # Max tokens for a single completion response. Defaults to the full context limit;
 # the actual value sent per-request is clamped dynamically based on input size.
