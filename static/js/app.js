@@ -1093,7 +1093,7 @@ async function fetchGithubFile(url) {
 // ── Search panel UI ────────────────────────────────────────────────────────
 const SVG_SEARCH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/></svg>`;
 const SVG_LINK_SM = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path fill-rule="evenodd" d="M8.914 6.025a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95l-2 2a3.5 3.5 0 0 1-4.95-4.95l1.17-1.17a.75.75 0 0 1 1.06 1.06L3.084 9.086a2 2 0 0 0 2.829 2.828l2-2a2 2 0 0 0 0-2.828.75.75 0 0 1 0-1.06Zm-3.84 1.96a.75.75 0 0 1-1.061 0 3.5 3.5 0 0 1 0-4.95l2-2a3.5 3.5 0 0 1 4.95 4.95l-1.17 1.17a.75.75 0 1 1-1.06-1.06l1.17-1.17a2 2 0 0 0-2.829-2.828l-2 2a2 2 0 0 0 0 2.828.75.75 0 0 1 0 1.06Z" clip-rule="evenodd"/></svg>`;
-const SVG_GH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>`;
+const SVG_GH = `<img src="/static/icons/github-actions-workflow.svg" width="13" height="13" style="vertical-align:-2px;opacity:0.85;" alt="GitHub">`;
 
 function createSearchPanel(query) {
     const panel = document.createElement('div');
@@ -1530,9 +1530,9 @@ async function sendMessage(text) {
         }
 
         // Show terminal panel if AI response contains shell commands
-        const shellCmds = extractShellCommands(cleanText);
-        if (shellCmds.length > 0) {
-            const termPanel = createTerminalPanel(shellCmds);
+        const shellGroups = extractShellCommandGroups(cleanText);
+        if (shellGroups.length > 0) {
+            const termPanel = createTerminalPanel(shellGroups);
             const botMsgDiv = bubble.closest('.message');
             if (botMsgDiv && botMsgDiv.nextSibling) {
                 messagesContainer.insertBefore(termPanel.el, botMsgDiv.nextSibling);
@@ -1798,7 +1798,6 @@ function buildEditingFileItem(filename, repoFile) {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.title = `View on GitHub: ${repoFile.owner}/${repoFile.repo}/${repoFile.path}`;
-        const SVG_GH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>`;
         link.innerHTML = SVG_GH + ' ' + repoFile.owner + '/' + repoFile.repo.split('/').pop() + '/' + repoFile.path.split('/').pop();
         item.appendChild(link);
     }
@@ -1832,82 +1831,99 @@ function finalizeEditingPanel(p, files, repoFile) {
     }
 }
 
-function createTerminalPanel(commands) {
-    const p = makePanelEl('terminal-panel', null, null, null, SVG_TERM, `Terminal (${commands.length} command${commands.length !== 1 ? 's' : ''})`);
-    commands.forEach(cmd => {
+const RUN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/></svg>`;
+
+function createTerminalPanel(groups) {
+    const totalCmds = groups.reduce((n, g) => n + g.commands.length, 0);
+    const p = makePanelEl('terminal-panel', null, null, null, SVG_TERM,
+        `Terminal (${totalCmds} command${totalCmds !== 1 ? 's' : ''})`);
+
+    groups.forEach(({ commands }) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'terminal-line-wrapper';
 
-        const line = document.createElement('div');
-        line.className = 'terminal-line';
-        const prompt = document.createElement('span');
-        prompt.className = 'terminal-prompt';
-        prompt.textContent = '$ ';
-        const text = document.createElement('span');
-        text.className = 'terminal-cmd-text';
-        text.textContent = cmd;
-
-        const runBtn = document.createElement('button');
-        runBtn.className = 'terminal-run-btn';
-        runBtn.title = 'Run in terminal';
-        runBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/></svg> Run`;
+        commands.forEach(cmd => {
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            const prompt = document.createElement('span');
+            prompt.className = 'terminal-prompt';
+            prompt.textContent = '$ ';
+            const textEl = document.createElement('span');
+            textEl.className = 'terminal-cmd-text';
+            textEl.textContent = cmd;
+            line.appendChild(prompt);
+            line.appendChild(textEl);
+            wrapper.appendChild(line);
+        });
 
         const outputEl = document.createElement('div');
         outputEl.className = 'terminal-output hidden';
 
+        const runBtn = document.createElement('button');
+        runBtn.className = 'terminal-run-btn';
+        runBtn.title = 'Run in terminal';
+        runBtn.innerHTML = RUN_SVG + ' Run';
+
         runBtn.addEventListener('click', async () => {
             runBtn.disabled = true;
-            runBtn.textContent = '...';
+            runBtn.innerHTML = '…';
             outputEl.className = 'terminal-output';
             outputEl.textContent = 'Running…';
+            let combined = '';
             try {
-                const resp = await fetch('/exec', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cmd })
-                });
-                const data = await resp.json();
-                if (data.error) {
-                    outputEl.textContent = `Error: ${data.error}`;
-                    outputEl.className = 'terminal-output error';
-                } else {
-                    const out = (data.stdout || '') + (data.stderr ? `\n[stderr] ${data.stderr}` : '');
-                    outputEl.textContent = out.trim() || `(exit ${data.returncode})`;
+                for (const cmd of commands) {
+                    const resp = await fetch('/exec', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cmd })
+                    });
+                    const data = await resp.json();
+                    if (data.error) {
+                        combined += `$ ${cmd}\nError: ${data.error}\n`;
+                        outputEl.textContent = combined.trim();
+                        outputEl.className = 'terminal-output error';
+                        break;
+                    }
+                    const out = (data.stdout || '') + (data.stderr ? `[stderr] ${data.stderr}` : '');
+                    combined += `$ ${cmd}\n${out.trim() || `(exit ${data.returncode})`}\n\n`;
+                    outputEl.textContent = combined.trim();
                     outputEl.className = `terminal-output ${data.returncode !== 0 ? 'error' : 'success'}`;
+                    if (data.returncode !== 0) break;
                 }
             } catch (e) {
                 outputEl.textContent = `Failed: ${e.message}`;
                 outputEl.className = 'terminal-output error';
             } finally {
                 runBtn.disabled = false;
-                runBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/></svg> Run`;
+                runBtn.innerHTML = RUN_SVG + ' Run';
                 scrollToBottom();
             }
         });
 
-        line.appendChild(prompt);
-        line.appendChild(text);
-        line.appendChild(runBtn);
-        wrapper.appendChild(line);
+        const btnRow = document.createElement('div');
+        btnRow.className = 'terminal-btn-row';
+        btnRow.appendChild(runBtn);
+        wrapper.appendChild(btnRow);
         wrapper.appendChild(outputEl);
         p.body.appendChild(wrapper);
     });
+
     return p;
 }
 
-function extractShellCommands(text) {
+function extractShellCommandGroups(text) {
     const shellLangs = /^(bash|sh|shell|zsh|cmd|powershell|ps1|terminal|console|command)$/i;
     const fenceRe = /```([\w.-]*)\n([\s\S]*?)```/g;
-    const cmds = [];
+    const groups = [];
     let m;
     while ((m = fenceRe.exec(text)) !== null) {
         const lang = m[1].trim();
         if (shellLangs.test(lang)) {
             const lines = m[2].split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-            cmds.push(...lines.slice(0, 6));
+            if (lines.length > 0) groups.push({ lang, commands: lines.slice(0, 10) });
         }
     }
-    return cmds;
+    return groups;
 }
 
 function guessFilenameFromText(text) {
