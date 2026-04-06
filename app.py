@@ -17,19 +17,23 @@ app = Flask(__name__)
 PROVIDER = os.environ.get("PROVIDER", "qwen").lower()
 MODEL_NAME = os.environ.get("MODEL_NAME", "qwen/qwen3.6-plus:free")
 
+client = None
+_client_error = None
+
 if PROVIDER == "qwen":
-    # Expect the user to set QWEN_API_KEY and QWEN_API_URL (or AI_BASE_URL)
     QWEN_API_KEY = os.environ.get("QWEN_API_KEY") or os.environ.get("ALIBABA_API_KEY")
     QWEN_API_URL = os.environ.get("QWEN_API_URL") or os.environ.get("AI_BASE_URL")
-    if not QWEN_API_KEY or not QWEN_API_URL:
-        raise RuntimeError("Missing QWEN_API_KEY or QWEN_API_URL. Set QWEN_API_KEY and QWEN_API_URL in the environment.")
-    client = OpenAI(api_key=QWEN_API_KEY, base_url=QWEN_API_URL)
+    if QWEN_API_KEY and QWEN_API_URL:
+        client = OpenAI(api_key=QWEN_API_KEY, base_url=QWEN_API_URL)
+    else:
+        _client_error = "Missing QWEN_API_KEY or QWEN_API_URL. Set them in the environment."
 else:
     OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
     BASE_URL = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api/v1")
-    if not OPENROUTER_API_KEY:
-        raise RuntimeError("Missing OPENROUTER_API_KEY")
-    client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=BASE_URL)
+    if OPENROUTER_API_KEY:
+        client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=BASE_URL)
+    else:
+        _client_error = "Missing OPENROUTER_API_KEY. Set it in the environment."
 
 # Total context window for the endpoint (input + output combined).
 # qwen/qwen3.6-plus:free context window. Override with CONTEXT_LIMIT env var if needed.
@@ -281,8 +285,33 @@ def serve_preview(pid):
 def index():
     return render_template("index.html", max_tokens=MAX_TOKENS, model_name=MODEL_NAME)
 
+@app.route("/exec", methods=["POST"])
+def exec_command():
+    """Execute a shell command and return its output."""
+    import subprocess
+    cmd = (request.json or {}).get("cmd", "").strip()
+    if not cmd:
+        return jsonify({"error": "No command"}), 400
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=15
+        )
+        return jsonify({
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Command timed out (15s)"}), 408
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/chat", methods=["POST"])
 def chat():
+    if client is None:
+        def _err():
+            yield f"\n\n[Configuration Error: {_client_error}]"
+        return Response(stream_with_context(_err()), mimetype="text/plain; charset=utf-8")
     data = request.json or {}
     messages = data.get("messages", [])
 

@@ -1904,3 +1904,47 @@ textarea#userInput::-webkit-scrollbar-thumb {
     user-select: none;
 }
 
+.terminal-cmd-text { flex: 1; }
+
+.terminal-line-wrapper { margin-bottom: 4px; }
+
+.terminal-run-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 1px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(134,239,172,0.3);
+    background: rgba(134,239,172,0.07);
+    color: rgba(134,239,172,0.8);
+    font-size: 0.78em;
+    font-family: monospace;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.terminal-run-btn:hover:not(:disabled) {
+    background: rgba(134,239,172,0.18);
+    color: rgba(134,239,172,1);
+    border-color: rgba(134,239,172,0.6);
+}
+.terminal-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.terminal-output {
+    font-family: monospace;
+    font-size: 0.78em;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 3px 0 6px 14px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.04);
+    color: rgba(240,240,245,0.85);
+    border-left: 2px solid rgba(134,239,172,0.3);
+    animation: srFadeIn 0.15s ease;
+}
+.terminal-output.hidden { display: none; }
+.terminal-output.error { color: rgba(248,113,113,0.9); border-left-color: rgba(248,113,113,0.4); }
+.terminal-output.success { border-left-color: rgba(52,211,153,0.5); }
+

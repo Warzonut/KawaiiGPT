@@ -1752,7 +1752,9 @@ function finalizeReadPanel(p, count) {
 }
 
 function createEditingPanel(filename) {
-    return makePanelEl('editing-panel', null, null, null, SVG_EDIT_PEN, `Editing: ${filename}`);
+    const p = makePanelEl('editing-panel', null, null, null, SVG_EDIT_PEN, `Editing: ${filename}`);
+    addEditingFile(p, filename);
+    return p;
 }
 
 function addEditingFile(p, filename) {
@@ -1766,21 +1768,73 @@ function addEditingFile(p, filename) {
 function finalizeEditingPanel(p, files) {
     p.el.classList.add('done', 'collapsed');
     p.statusEl.textContent = `Edited ${files.join(', ')}`;
+    const existing = p.body.querySelectorAll('.editing-file-item');
+    if (existing.length === 1 && files.length >= 1) {
+        existing[0].innerHTML = SVG_EDIT_PEN + `&nbsp;${files[0]}`;
+    } else if (existing.length === 0) {
+        files.forEach(f => addEditingFile(p, f));
+    }
 }
 
 function createTerminalPanel(commands) {
     const p = makePanelEl('terminal-panel', null, null, null, SVG_TERM, `Terminal (${commands.length} command${commands.length !== 1 ? 's' : ''})`);
     commands.forEach(cmd => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'terminal-line-wrapper';
+
         const line = document.createElement('div');
         line.className = 'terminal-line';
         const prompt = document.createElement('span');
         prompt.className = 'terminal-prompt';
         prompt.textContent = '$ ';
         const text = document.createElement('span');
+        text.className = 'terminal-cmd-text';
         text.textContent = cmd;
+
+        const runBtn = document.createElement('button');
+        runBtn.className = 'terminal-run-btn';
+        runBtn.title = 'Run in terminal';
+        runBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/></svg> Run`;
+
+        const outputEl = document.createElement('div');
+        outputEl.className = 'terminal-output hidden';
+
+        runBtn.addEventListener('click', async () => {
+            runBtn.disabled = true;
+            runBtn.textContent = '...';
+            outputEl.className = 'terminal-output';
+            outputEl.textContent = 'Running…';
+            try {
+                const resp = await fetch('/exec', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cmd })
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    outputEl.textContent = `Error: ${data.error}`;
+                    outputEl.className = 'terminal-output error';
+                } else {
+                    const out = (data.stdout || '') + (data.stderr ? `\n[stderr] ${data.stderr}` : '');
+                    outputEl.textContent = out.trim() || `(exit ${data.returncode})`;
+                    outputEl.className = `terminal-output ${data.returncode !== 0 ? 'error' : 'success'}`;
+                }
+            } catch (e) {
+                outputEl.textContent = `Failed: ${e.message}`;
+                outputEl.className = 'terminal-output error';
+            } finally {
+                runBtn.disabled = false;
+                runBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/></svg> Run`;
+                scrollToBottom();
+            }
+        });
+
         line.appendChild(prompt);
         line.appendChild(text);
-        p.body.appendChild(line);
+        line.appendChild(runBtn);
+        wrapper.appendChild(line);
+        wrapper.appendChild(outputEl);
+        p.body.appendChild(wrapper);
     });
     return p;
 }
