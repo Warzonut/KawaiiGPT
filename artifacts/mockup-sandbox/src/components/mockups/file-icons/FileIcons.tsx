@@ -33,6 +33,9 @@ const frameworkIcons: IconEntry[] = [
   { label: "Gatsby", filename: "gatsby-config.js", icon: "gatsby" },
   { label: "Qwik", filename: "root.tsx", icon: "qwik" },
   { label: "Blitz", filename: "blitz.config.ts", icon: "blitz" },
+  { label: "Apollo", filename: "apollo.config.ts", icon: "apollo" },
+  { label: "Laravel", filename: "routes/web.php", icon: "laravel" },
+  { label: "AdonisJS", filename: "start/routes.ts", icon: "adonis" },
   { label: "Vite", filename: "vite.config.ts", icon: "vite" },
   { label: "Webpack", filename: "webpack.config.js", icon: "webpack" },
   { label: "Tailwind", filename: "tailwind.config.ts", icon: "tailwindcss" },
@@ -48,11 +51,22 @@ const frameworkIcons: IconEntry[] = [
   { label: "Drizzle", filename: "drizzle.config.ts", icon: "drizzle" },
 ];
 
+const buildIcons: IconEntry[] = [
+  { label: "Babel", filename: "babel.config.js", icon: "babel" },
+  { label: "Bazel", filename: "BUILD.bazel", icon: "bazel" },
+  { label: "Bower", filename: "bower.json", icon: "bower" },
+  { label: "Nix", filename: "default.nix", icon: "nix" },
+  { label: "Wrangler", filename: "wrangler.toml", icon: "wrangler" },
+  { label: "WindiCSS", filename: "windi.config.ts", icon: "windicss" },
+  { label: "Amplify", filename: "amplify.yml", icon: "amplify" },
+];
+
 const testingIcons: IconEntry[] = [
   { label: "Jest", filename: "app.test.ts", icon: "jest", ext: "test" },
   { label: "Vitest", filename: "vitest.config.ts", icon: "vitest" },
   { label: "Playwright", filename: "playwright.config.ts", icon: "playwright" },
   { label: "Cypress", filename: "cypress.config.ts", icon: "cypress" },
+  { label: "Cucumber", filename: "cucumber.json", icon: "cucumber" },
   { label: "ESLint", filename: ".eslintrc.json", icon: "eslint" },
   { label: "Prettier", filename: ".prettierrc", icon: "prettier" },
 ];
@@ -65,6 +79,17 @@ const aiIcons: IconEntry[] = [
   { label: "CodeRabbit", filename: ".coderabbit.yaml", icon: "coderabbit-ai" },
 ];
 
+const editorsIcons: IconEntry[] = [
+  { label: "VS Code", filename: ".vscode", icon: "vscode" },
+  { label: "Visual Studio", filename: ".sln", icon: "visualstudio" },
+  { label: "Vim", filename: ".vimrc", icon: "vim" },
+  { label: "Chrome", filename: "manifest.json", icon: "chrome" },
+  { label: "Blender", filename: "scene.blend", icon: "blender", ext: "blend" },
+  { label: "Photoshop", filename: "design.psd", icon: "adobe-photoshop", ext: "psd" },
+  { label: "Illustrator", filename: "logo.ai", icon: "adobe-illustrator", ext: "ai" },
+  { label: "Replit", filename: ".replit", icon: "replit" },
+];
+
 const cloudIcons: IconEntry[] = [
   { label: "Vercel", filename: "vercel.json", icon: "vercel" },
   { label: "Netlify", filename: "netlify.toml", icon: "netlify" },
@@ -74,7 +99,32 @@ const cloudIcons: IconEntry[] = [
   { label: "Zeabur", filename: "zbpack.json", icon: "zeabur" },
 ];
 
-const mobileIcons: IconEntry[] = [
+const devopsIcons: IconEntry[] = [
+  { label: "Docker", filename: "Dockerfile", icon: "docker" },
+  { label: "Kubernetes", filename: "deployment.yaml", icon: "kubernetes" },
+  { label: "Terraform", filename: "main.tf", icon: "terraform", ext: "tf" },
+  { label: "Helm", filename: "Chart.yaml", icon: "helm" },
+  { label: "Nginx", filename: "nginx.conf", icon: "nginx" },
+  { label: "Firebase", filename: "firebase.json", icon: "firebase" },
+  { label: "Supabase", filename: "supabase.ts", icon: "supabase" },
+  { label: "Git", filename: ".gitignore", icon: "git" },
+  { label: "GitHub Actions", filename: "ci.yml", icon: "github-actions-workflow" },
+  { label: "GitLab", filename: ".gitlab-ci.yml", icon: "gitlab" },
+  { label: "Bitbucket", filename: "bitbucket-pipelines.yml", icon: "bitbucket" },
+  { label: "CircleCI", filename: ".circleci/config.yml", icon: "circleci" },
+  { label: "BuildKite", filename: "pipeline.yml", icon: "buildkite" },
+  { label: "AppVeyor", filename: ".appveyor.yml", icon: "appveyor" },
+  { label: "Codecov", filename: "codecov.yml", icon: "codecov" },
+  { label: "Dependabot", filename: ".dependabot/config.yml", icon: "dependabot" },
+  { label: "Shell", filename: "deploy.sh", icon: "console", ext: "sh" },
+  { label: "PowerShell", filename: "run.ps1", icon: "powershell", ext: "ps1" },
+  { label: "npm", filename: "package.json", icon: "npm" },
+  { label: "Yarn", filename: "yarn.lock", icon: "yarn" },
+  { label: "pnpm", filename: "pnpm-lock.yaml", icon: "pnpm" },
+  { label: "Bun lock", filename: "bun.lockb", icon: "bun" },
+];
+
+const runtimesIcons: IconEntry[] = [
   { label: "Android", filename: "AndroidManifest.xml", icon: "android" },
   { label: "Deno", filename: "main.ts", icon: "deno" },
   { label: "Bun", filename: "bun.lockb", icon: "bun" },
@@ -82,6 +132,7 @@ const mobileIcons: IconEntry[] = [
 ];
 
 const systemsIcons: IconEntry[] = [
+  { label: "C", filename: "main.c", icon: "c", ext: "c" },
   { label: "Python", filename: "main.py", icon: "python", ext: "py" },
   { label: "Java", filename: "Main.java", icon: "java", ext: "java" },
   { label: "C++", filename: "main.cpp", icon: "cpp", ext: "cpp" },
@@ -98,9 +149,11 @@ const systemsIcons: IconEntry[] = [
   { label: "Haskell", filename: "Main.hs", icon: "haskell", ext: "hs" },
   { label: "F#", filename: "Program.fs", icon: "fsharp", ext: "fs" },
   { label: "Julia", filename: "main.jl", icon: "julia", ext: "jl" },
+  { label: "Perl", filename: "script.pl", icon: "perl", ext: "pl" },
   { label: "Zig", filename: "main.zig", icon: "zig", ext: "zig" },
   { label: "Solidity", filename: "Contract.sol", icon: "solidity", ext: "sol" },
   { label: "Assembly", filename: "main.asm", icon: "assembly", ext: "asm" },
+  { label: "CUDA", filename: "kernel.cu", icon: "cuda", ext: "cu" },
   { label: "Elixir", filename: "app.ex", icon: "elixir", ext: "ex" },
   { label: "Erlang", filename: "main.erl", icon: "erlang", ext: "erl" },
   { label: "Clojure", filename: "core.clj", icon: "clojure", ext: "clj" },
@@ -133,23 +186,6 @@ const configIcons: IconEntry[] = [
   { label: "CMake", filename: "CMakeLists.txt", icon: "cmake" },
   { label: "Makefile", filename: "Makefile", icon: "makefile" },
   { label: "tsconfig", filename: "tsconfig.json", icon: "tsconfig" },
-];
-
-const infraIcons: IconEntry[] = [
-  { label: "Docker", filename: "Dockerfile", icon: "docker" },
-  { label: "Kubernetes", filename: "deployment.yaml", icon: "kubernetes" },
-  { label: "Terraform", filename: "main.tf", icon: "terraform", ext: "tf" },
-  { label: "Helm", filename: "Chart.yaml", icon: "helm" },
-  { label: "Nginx", filename: "nginx.conf", icon: "nginx" },
-  { label: "Firebase", filename: "firebase.json", icon: "firebase" },
-  { label: "Supabase", filename: "supabase.ts", icon: "supabase" },
-  { label: "Git", filename: ".gitignore", icon: "git" },
-  { label: "Shell", filename: "deploy.sh", icon: "console", ext: "sh" },
-  { label: "PowerShell", filename: "run.ps1", icon: "powershell", ext: "ps1" },
-  { label: "npm", filename: "package.json", icon: "npm" },
-  { label: "Yarn", filename: "yarn.lock", icon: "yarn" },
-  { label: "pnpm", filename: "pnpm-lock.yaml", icon: "pnpm" },
-  { label: "Bun lock", filename: "bun.lockb", icon: "bun" },
 ];
 
 function IconCard({ label, filename, icon, ext }: IconEntry) {
@@ -201,7 +237,7 @@ function IconCard({ label, filename, icon, ext }: IconEntry) {
       >
         {label}
       </span>
-      {ext && (
+      {ext ? (
         <span
           style={{
             fontSize: 9,
@@ -215,8 +251,7 @@ function IconCard({ label, filename, icon, ext }: IconEntry) {
         >
           .{ext}
         </span>
-      )}
-      {!ext && (
+      ) : (
         <span
           style={{
             fontSize: 9,
@@ -234,13 +269,15 @@ function IconCard({ label, filename, icon, ext }: IconEntry) {
 const sections = [
   { title: "Web", icons: webIcons },
   { title: "Frameworks & Meta-Frameworks", icons: frameworkIcons },
+  { title: "Build Tools & Config", icons: buildIcons },
   { title: "Testing & Linting", icons: testingIcons },
   { title: "AI Tools", icons: aiIcons },
+  { title: "Editors & Design Apps", icons: editorsIcons },
   { title: "Cloud & Hosting", icons: cloudIcons },
-  { title: "Runtimes & Platforms", icons: mobileIcons },
-  { title: "Systems & Backend", icons: systemsIcons },
+  { title: "CI/CD & DevOps", icons: devopsIcons },
+  { title: "Runtimes & Platforms", icons: runtimesIcons },
+  { title: "Languages", icons: systemsIcons },
   { title: "Config & Data", icons: configIcons },
-  { title: "DevOps & Infrastructure", icons: infraIcons },
 ];
 
 const totalIcons = sections.reduce((sum, s) => sum + s.icons.length, 0);
@@ -256,15 +293,8 @@ export function FileIcons() {
         color: "#cdd6f4",
       }}
     >
-      {/* Header */}
       <div style={{ marginBottom: 28, display: "flex", alignItems: "center", gap: 12 }}>
-        <img
-          src="/__mockup/icons/javascript.svg"
-          width={24}
-          height={24}
-          alt=""
-          style={{ opacity: 0.6 }}
-        />
+        <img src="/__mockup/icons/javascript.svg" width={24} height={24} alt="" style={{ opacity: 0.6 }} />
         <div>
           <h1 style={{ fontSize: 15, fontWeight: 700, color: "#cdd6f4", margin: 0, lineHeight: 1 }}>
             material-icon-theme
@@ -275,7 +305,6 @@ export function FileIcons() {
         </div>
       </div>
 
-      {/* Sections */}
       {sections.map((section) => (
         <div key={section.title} style={{ marginBottom: 28 }}>
           <div
