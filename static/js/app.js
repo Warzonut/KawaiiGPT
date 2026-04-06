@@ -1134,10 +1134,7 @@ function addSearchResultItem(sp, result) {
 
     const icon = document.createElement('span');
     icon.className = 'search-result-icon';
-    const urlPath = (result.url || '').split('?')[0].split('#')[0];
-    const urlExt = urlPath.includes('.') ? urlPath.split('.').pop().toLowerCase() : '';
-    const webExts = new Set(['html','htm','css','js','ts','json','xml','md','svg','py','php','rb','go','rs']);
-    icon.innerHTML = webExts.has(urlExt) ? getFileIcon(urlPath, 13) : SVG_LINK_SM;
+    icon.innerHTML = SVG_LINK_SM;
 
     const textDiv = document.createElement('div');
     textDiv.className = 'search-result-text';
