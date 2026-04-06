@@ -1743,40 +1743,6 @@ function buildRepoContextStr() {
     return lines.join('\n');
 }
 
-function fileTypeChip(filename) {
-    const ext = (filename.split('.').pop() || '').toLowerCase();
-    const map = {
-        html: 'html', htm: 'html',
-        css: 'css', scss: 'css', sass: 'css', less: 'css',
-        js: 'js', mjs: 'js', cjs: 'js',
-        jsx: 'jsx',
-        ts: 'ts',
-        tsx: 'tsx',
-        py: 'py', pyw: 'py',
-        json: 'json', jsonc: 'json',
-        svg: 'svg',
-        md: 'md', mdx: 'md', markdown: 'md',
-        vue: 'vue',
-        go: 'go',
-        rs: 'rs',
-        rb: 'rb', erb: 'rb',
-        php: 'php',
-        java: 'java', kt: 'java', gradle: 'java',
-        sh: 'sh', bash: 'sh', zsh: 'sh',
-        yml: 'yml', yaml: 'yml',
-        xml: 'xml', xsl: 'xml',
-        txt: 'txt', log: 'txt',
-        env: 'env',
-        lock: 'lock', lockb: 'lock',
-    };
-    const key = map[ext] || 'default';
-    const label = ext.length <= 4 ? (ext || 'file') : ext.slice(0, 4);
-    const chip = document.createElement('span');
-    chip.className = `ft-chip ft-${key}`;
-    chip.textContent = label;
-    return chip;
-}
-
 function renderContextFileBadges() {
     const container = document.getElementById('copilotContextFiles');
     if (!container) return;
@@ -1785,11 +1751,8 @@ function renderContextFileBadges() {
         const badge = document.createElement('span');
         badge.className = 'context-file-badge';
         const name = f.path.split('/').pop();
+        badge.textContent = name;
         badge.title = `${f.owner}/${f.repo}:${f.path}`;
-        badge.appendChild(fileTypeChip(name));
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = name;
-        badge.appendChild(nameSpan);
         const rm = document.createElement('span');
         rm.className = 'cfb-remove';
         rm.textContent = '×';
@@ -1857,7 +1820,7 @@ function renderFileTree(filter = '') {
         item.className = 'repo-tree-item' + (selectedFilePaths.has(f.path) ? ' selected' : '');
         const icon = document.createElement('span');
         icon.className = 'rti-icon';
-        icon.appendChild(fileTypeChip(f.path.split('/').pop()));
+        icon.innerHTML = SVG_LINK_SM;
         const pathEl = document.createElement('span');
         pathEl.className = 'rti-path';
         pathEl.textContent = f.path;
