@@ -1943,11 +1943,34 @@ function guessFilenameFromCode(codeText) {
     // Look for ``` lang filename.ext pattern
     const m = codeText.match(/```[\w-]+ ([\w./\\-]+\.\w+)/);
     if (m) return m[1].split('/').pop();
+    // Look for filename in a comment at the top of the code block (e.g. // app.js or # main.py)
+    const commentFile = codeText.match(/```[\w-]*\n(?:\/\/|#|--|<!--|\/\*)\s*([\w./\\-]+\.\w+)/);
+    if (commentFile) return commentFile[1].split('/').pop();
     // Look for shebang
     if (/^#!.*\/python/.test(codeText)) return 'script.py';
     if (/^#!.*\/node/.test(codeText)) return 'script.js';
     if (/^#!.*\/bash/.test(codeText)) return 'script.sh';
-    return null;
+    // Infer from the fenced code language tag + content clues
+    const langMatch = codeText.match(/```([\w-]+)/);
+    const lang = langMatch ? langMatch[1].toLowerCase() : '';
+    const code = codeText.replace(/```[\w-]*\n?/g, '');
+    const langExtMap = {
+        python: 'py', javascript: 'js', typescript: 'ts', jsx: 'jsx', tsx: 'tsx',
+        html: 'html', css: 'css', scss: 'scss', java: 'java', kotlin: 'kt',
+        swift: 'swift', go: 'go', rust: 'rs', ruby: 'rb', php: 'php',
+        cpp: 'cpp', c: 'c', cs: 'cs', shell: 'sh', bash: 'sh', sh: 'sh',
+        sql: 'sql', yaml: 'yml', json: 'json', markdown: 'md', md: 'md',
+    };
+    const ext = langExtMap[lang];
+    if (!ext) return null;
+    // Try to derive a meaningful name from class/function/module names in the code
+    const classMatch = code.match(/^class\s+(\w+)/m);
+    if (classMatch) return classMatch[1].toLowerCase() + '.' + ext;
+    const defMatch = code.match(/^(?:def|function|func)\s+(\w+)/m);
+    if (defMatch) return defMatch[1].toLowerCase() + '.' + ext;
+    const moduleMatch = code.match(/^(?:module|package)\s+([\w.]+)/m);
+    if (moduleMatch) return moduleMatch[1].split('.').pop().toLowerCase() + '.' + ext;
+    return 'script.' + ext;
 }
 
 // ── Repo context store ────────────────────────────────────────────────────
