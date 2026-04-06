@@ -803,7 +803,8 @@ function saveCurrentChat() {
         title,
         timestamp: Date.now(),
         messages: conversationHistory,
-        displayMessages
+        displayMessages,
+        repoContextFiles: repoContextFiles.slice()
     };
     if (idx >= 0) {
         chats[idx] = chatData;
@@ -892,6 +893,8 @@ function loadChat(id) {
     currentChatId = id;
     conversationHistory = chat.messages || [];
     displayMessages = chat.displayMessages || [];
+    repoContextFiles = chat.repoContextFiles || [];
+    renderContextFileBadges();
     chatTitle.textContent = chat.title || 'KawaiiGPT';
     messagesContainer.innerHTML = '';
     displayMessages.forEach(msg => {
