@@ -32,8 +32,8 @@ else:
     client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=BASE_URL)
 
 # Total context window for the endpoint (input + output combined).
-# qwen/qwen3.6-plus:free supports up to 131K tokens. Override with CONTEXT_LIMIT env var if needed.
-CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(131_072)))
+# qwen/qwen3.6-plus:free context window. Override with CONTEXT_LIMIT env var if needed.
+CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(1_000_000)))
 
 # Max tokens for a single completion response. Defaults to the full context limit;
 # the actual value sent per-request is clamped dynamically based on input size.
