@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 # Provider selection: 'qwen' (Alibaba) or 'openrouter'
 PROVIDER = os.environ.get("PROVIDER", "qwen").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "qwen-turbo" if PROVIDER == "qwen" else "qwen/qwen3.6-plus:free")
+MODEL_NAME = os.environ.get("MODEL_NAME", "qwen-long" if PROVIDER == "qwen" else "qwen/qwen3.6-plus:free")
 
 if PROVIDER == "qwen":
     # Expect the user to set QWEN_API_KEY and QWEN_API_URL (or AI_BASE_URL)
@@ -33,8 +33,8 @@ else:
 
 # Max tokens for completions (configurable via env var). Default: model limit.
 # Note: many models enforce a hard upper limit; setting this does not bypass model limits.
-# The model has a 1M total context (input + output). Default output to 32,768 to leave room for input.
-DEFAULT_MODEL_MAX_TOKENS = 967000
+# qwen-long has a 10M total context window. Default max output tokens to leave room for large inputs.
+DEFAULT_MODEL_MAX_TOKENS = 2000000
 MODEL_MAX_TOKENS = int(os.environ.get("MODEL_MAX_TOKENS", str(DEFAULT_MODEL_MAX_TOKENS)))
 MAX_TOKENS = min(int(os.environ.get("MAX_TOKENS", str(MODEL_MAX_TOKENS))), MODEL_MAX_TOKENS)
 
