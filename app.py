@@ -281,6 +281,12 @@ def serve_preview(pid):
     content = _preview_store.get(pid, "<h1>Preview not found</h1>")
     return Response(content, mimetype="text/html")
 
+@app.route("/favicon.ico")
+def favicon():
+    return app.send_static_file("favicon.ico") if os.path.exists(
+        os.path.join(app.static_folder, "favicon.ico")
+    ) else ("", 204)
+
 @app.route("/")
 def index():
     return render_template("index.html", max_tokens=MAX_TOKENS, model_name=MODEL_NAME)
