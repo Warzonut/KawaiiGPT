@@ -1572,10 +1572,41 @@ textarea#userInput::-webkit-scrollbar-thumb {
     max-height: 340px;
 }
 
+.repo-tree-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .repo-tree-header {
     font-size: 12px;
     color: var(--text-muted);
-    padding-bottom: 4px;
+    flex: 1;
+}
+
+.modal-import-all-btn {
+    padding: 5px 12px;
+    background: rgba(52,211,153,0.15);
+    border: 1px solid rgba(52,211,153,0.3);
+    border-radius: 6px;
+    color: rgba(52,211,153,0.9);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.modal-import-all-btn:hover {
+    background: rgba(52,211,153,0.25);
+    color: #fff;
+}
+
+.modal-import-all-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .repo-tree-search { display: flex; }

@@ -169,9 +169,12 @@
                 </div>
                 <div id="repoError" class="repo-error" style="display:none"></div>
                 <div id="repoTreeContainer" class="repo-tree-container" style="display:none">
-                    <div class="repo-tree-header" id="repoTreeHeader"></div>
+                    <div class="repo-tree-header-row">
+                        <div class="repo-tree-header" id="repoTreeHeader"></div>
+                        <button class="modal-import-all-btn" id="importAllBtn" title="Import all files into context">Import All</button>
+                    </div>
                     <div class="repo-tree-search">
-                        <input type="text" id="repoTreeSearch" class="modal-input" placeholder="Filter files..." autocomplete="off"/>
+                        <input type="text" id="repoTreeSearch" class="modal-input" placeholder="Filter files... (click to select individual files)" autocomplete="off"/>
                     </div>
                     <div class="repo-tree-list" id="repoTreeList"></div>
                 </div>

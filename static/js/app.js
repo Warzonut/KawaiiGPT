@@ -1779,6 +1779,9 @@ const repoTreeSearch  = document.getElementById('repoTreeSearch');
 const selectedFilesBar = document.getElementById('selectedFilesBar');
 const selectedFileCount = document.getElementById('selectedFileCount');
 const addFilesToContextBtn = document.getElementById('addFilesToContextBtn');
+const importAllBtn         = document.getElementById('importAllBtn');
+
+const IMPORT_ALL_MAX = 30; // max files imported at once to avoid overloading context
 
 let currentRepoData = null;    // {owner, repo, branch, files}
 let selectedFilePaths = new Set();
@@ -1906,6 +1909,50 @@ async function addSelectedFilesToContext() {
     if (addFilesToContextBtn) { addFilesToContextBtn.textContent = 'Add to Context'; addFilesToContextBtn.disabled = false; }
 }
 
+async function importAllFiles() {
+    if (!currentRepoData) return;
+    const allBlobs = currentRepoData.files
+        .filter(f => f.type === 'blob')
+        .slice(0, IMPORT_ALL_MAX);
+
+    if (allBlobs.length === 0) return;
+
+    const btn = importAllBtn;
+    if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
+
+    const { owner, repo, branch } = currentRepoData;
+    const filenames = allBlobs.map(f => f.path.split('/').pop());
+
+    const readPanel = createReadPanel(filenames);
+    messagesContainer.appendChild(readPanel.el);
+    scrollToBottom();
+
+    let fetched = 0;
+    for (const file of allBlobs) {
+        const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${file.path}`;
+        try {
+            const resp = await fetch('/fetch-url', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ url: rawUrl })
+            });
+            const data = await resp.json();
+            const content = data.text || '';
+            // Skip already-loaded paths
+            if (!repoContextFiles.find(x => x.path === file.path && x.owner === owner && x.repo === repo)) {
+                repoContextFiles.push({ path: file.path, content, owner, repo });
+            }
+            fetched++;
+        } catch {}
+    }
+
+    finalizeReadPanel(readPanel, fetched);
+    renderContextFileBadges();
+    closeImportRepoModal();
+
+    if (btn) { btn.textContent = 'Import All'; btn.disabled = false; }
+}
+
 if (importRepoBtn) importRepoBtn.addEventListener('click', openImportRepoModal);
 if (importRepoClose) importRepoClose.addEventListener('click', closeImportRepoModal);
 if (importRepoModal) importRepoModal.addEventListener('click', (e) => { if (e.target === importRepoModal) closeImportRepoModal(); });
@@ -1913,6 +1960,7 @@ if (repoFetchBtn) repoFetchBtn.addEventListener('click', fetchRepo);
 if (repoUrlInput) repoUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchRepo(); });
 if (repoTreeSearch) repoTreeSearch.addEventListener('input', () => renderFileTree(repoTreeSearch.value));
 if (addFilesToContextBtn) addFilesToContextBtn.addEventListener('click', addSelectedFilesToContext);
+if (importAllBtn) importAllBtn.addEventListener('click', importAllFiles);
 
 renderContextFileBadges();
 
