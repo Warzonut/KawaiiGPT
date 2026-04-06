@@ -1617,7 +1617,100 @@ userInput.addEventListener('input', () => { autoResize(); onInputURLDetect(); })
 
 const SVG_READ = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M0 2.75A.75.75 0 01.75 2h14.5a.75.75 0 010 1.5H.75A.75.75 0 010 2.75zm0 5A.75.75 0 01.75 7h14.5a.75.75 0 010 1.5H.75A.75.75 0 010 7.75zm0 5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H.75a.75.75 0 01-.75-.75z"/></svg>`;
 const SVG_EDIT_PEN = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.445-.757l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81 3.428 11.13c-.035.035-.061.077-.075.122l-.63 2.202 2.202-.63a.25.25 0 00.122-.075l6.142-6.498z"/></svg>`;
-const SVG_TERM = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M1.5 2.75C1.5 1.784 2.284 1 3.25 1h9.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0112.75 15h-9.5A1.75 1.75 0 011.5 13.25V2.75zm1.75-.25a.25.25 0 00-.25.25v10.5c0 .138.112.25.25.25h9.5a.25.25 0 00.25-.25V2.75a.25.25 0 00-.25-.25h-9.5zM5.22 6.22a.75.75 0 00-1.06 1.06l1.97 1.97-1.97 1.97a.75.75 0 101.06 1.06l2.5-2.5a.75.75 0 000-1.06l-2.5-2.5zm4.03 5.53a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5z" clip-rule="evenodd"/></svg>`;
+const SVG_TERM = `<img src="/static/icons/console.svg" width="14" height="14" style="vertical-align:middle;opacity:0.85" alt="">`;
+
+// ── Material icon helper ──────────────────────────────────────────────────────
+function getFileIcon(filename, size = 14) {
+    const base = (filename || '').split('/').pop().split('\\').pop();
+    const lower = base.toLowerCase();
+    const ext = lower.includes('.') ? lower.split('.').pop() : '';
+
+    const specialFiles = {
+        'dockerfile': 'docker', 'docker-compose.yml': 'docker', 'docker-compose.yaml': 'docker',
+        'makefile': 'makefile', 'gnumakefile': 'makefile',
+        '.gitignore': 'git', '.gitattributes': 'git', '.gitmodules': 'git',
+        'procfile': 'console',
+        'readme': 'readme', 'readme.md': 'readme', 'readme.txt': 'readme',
+        'license': 'license', 'licence': 'license',
+        'changelog': 'changelog', 'changelog.md': 'changelog',
+        'package.json': 'npm', 'package-lock.json': 'lock',
+        'yarn.lock': 'yarn', 'pnpm-lock.yaml': 'pnpm', 'bun.lockb': 'bun',
+        'tsconfig.json': 'tsconfig',
+        '.eslintrc': 'eslint', '.eslintrc.json': 'eslint', '.eslintrc.js': 'eslint', '.eslintrc.cjs': 'eslint',
+        '.prettierrc': 'prettier', '.prettierrc.json': 'prettier',
+        '.babelrc': 'babel', 'babel.config.js': 'babel', 'babel.config.ts': 'babel',
+        'vite.config.ts': 'vite', 'vite.config.js': 'vite',
+        'webpack.config.js': 'webpack', 'webpack.config.ts': 'webpack',
+        'tailwind.config.js': 'tailwindcss', 'tailwind.config.ts': 'tailwindcss',
+        'next.config.js': 'next', 'next.config.ts': 'next',
+        'nuxt.config.ts': 'nuxt', 'nuxt.config.js': 'nuxt',
+        '.env': 'settings', '.env.local': 'settings', '.env.production': 'settings', '.env.development': 'settings',
+        'cargo.toml': 'rust', 'cargo.lock': 'rust',
+        'go.mod': 'go', 'go.sum': 'go',
+        'requirements.txt': 'python', 'setup.py': 'python', 'pyproject.toml': 'python',
+        'schema.prisma': 'prisma', 'drizzle.config.ts': 'drizzle', 'drizzle.config.js': 'drizzle',
+        '.editorconfig': 'editorconfig', 'renovate.json': 'renovate', 'biome.json': 'biome',
+        'turbo.json': 'turborepo', 'turbo.jsonc': 'turborepo',
+        '.prettierignore': 'prettier', '.eslintignore': 'eslint',
+        'vitest.config.ts': 'vitest', 'vitest.config.js': 'vitest',
+        'playwright.config.ts': 'playwright', 'playwright.config.js': 'playwright',
+        'jest.config.js': 'jest', 'jest.config.ts': 'jest',
+        'deno.json': 'deno', 'deno.jsonc': 'deno',
+        'bun.toml': 'bun',
+        'vercel.json': 'vercel', 'netlify.toml': 'netlify',
+        'wrangler.toml': 'wrangler', 'wrangler.json': 'wrangler',
+        '.github': 'git', 'commitlint.config.js': 'commitlint', 'commitlint.config.ts': 'commitlint',
+    };
+    const extMap = {
+        'js': 'javascript', 'mjs': 'javascript', 'cjs': 'javascript',
+        'ts': 'typescript', 'mts': 'typescript', 'cts': 'typescript',
+        'jsx': 'react', 'tsx': 'react',
+        'html': 'html', 'htm': 'html',
+        'css': 'css', 'scss': 'sass', 'sass': 'sass', 'less': 'less',
+        'vue': 'vue', 'svelte': 'svelte', 'astro': 'astro',
+        'py': 'python', 'pyw': 'python', 'pyi': 'python',
+        'java': 'java', 'kt': 'kotlin', 'kts': 'kotlin',
+        'swift': 'swift', 'cpp': 'cpp', 'cxx': 'cpp', 'cc': 'cpp', 'c': 'c',
+        'h': 'c', 'hpp': 'cpp', 'cs': 'csharp',
+        'go': 'go', 'rs': 'rust', 'rb': 'ruby', 'php': 'php',
+        'scala': 'scala', 'dart': 'dart', 'lua': 'lua',
+        'hs': 'haskell', 'fs': 'fsharp', 'fsi': 'fsharp', 'ml': 'ocaml',
+        'jl': 'julia', 'zig': 'zig', 'sol': 'solidity',
+        'ex': 'elixir', 'exs': 'elixir', 'erl': 'erlang',
+        'clj': 'clojure', 'elm': 'elm', 'coffee': 'coffee',
+        'gleam': 'gleam', 'mojo': 'mojo', 'r': 'r', 'nim': 'nim',
+        'cr': 'crystal', 'adb': 'ada', 'ads': 'ada',
+        'v': 'vlang', 'odin': 'odin', 'gr': 'grain', 'purs': 'purescript',
+        'vala': 'vala', 'bal': 'ballerina', 'cbl': 'cobol', 'cob': 'cobol',
+        'f90': 'fortran', 'f95': 'fortran', 'for': 'fortran',
+        'wasm': 'webassembly', 'cu': 'cuda',
+        'graphql': 'graphql', 'gql': 'graphql',
+        'json': 'json', 'json5': 'json', 'jsonc': 'json',
+        'yaml': 'yaml', 'yml': 'yaml', 'toml': 'toml',
+        'md': 'markdown', 'mdx': 'mdx', 'xml': 'xml', 'svg': 'svg',
+        'sql': 'database',
+        'sh': 'console', 'bash': 'console', 'zsh': 'console', 'fish': 'console',
+        'ps1': 'powershell', 'psm1': 'powershell',
+        'tf': 'terraform', 'tfvars': 'terraform',
+        'tex': 'tex', 'adoc': 'asciidoc',
+        'pug': 'pug', 'hbs': 'handlebars', 'njk': 'nunjucks',
+        'liquid': 'liquid', 'twig': 'twig', 'cshtml': 'razor',
+        'zip': 'zip', 'gz': 'zip', 'tar': 'zip', 'rar': 'zip',
+        'pdf': 'pdf', 'png': 'image', 'jpg': 'image', 'jpeg': 'image',
+        'gif': 'image', 'webp': 'image', 'ico': 'image',
+        'mp4': 'video', 'mov': 'video', 'webm': 'video',
+        'mp3': 'audio', 'wav': 'audio', 'ogg': 'audio',
+        'ttf': 'font', 'woff': 'font', 'woff2': 'font', 'otf': 'font',
+        'exe': 'exe', 'dll': 'dll', 'log': 'log', 'lock': 'lock',
+        'diff': 'diff', 'patch': 'diff',
+        'pem': 'certificate', 'crt': 'certificate', 'key': 'key',
+        'prisma': 'prisma', 'pl': 'perl', 'pm': 'perl', 'd': 'd',
+        'gradle': 'gradle', 'groovy': 'gradle', 'asm': 'assembly',
+    };
+
+    const iconName = specialFiles[lower] || extMap[ext] || 'file';
+    return `<img src="/static/icons/${iconName}.svg" width="${size}" height="${size}" style="vertical-align:middle;flex-shrink:0;display:inline-block" alt="" onerror="this.src='/static/icons/file.svg'">`;
+}
 
 function makePanelEl(cls, accentHdr, accentBorder, accentBg, iconSvg, initialStatus) {
     const panel = document.createElement('div');
