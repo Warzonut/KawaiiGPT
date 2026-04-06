@@ -1753,7 +1753,7 @@ function createReadPanel(filenames) {
     filenames.forEach(name => {
         const item = document.createElement('div');
         item.className = 'read-file-item';
-        item.innerHTML = SVG_READ + `&nbsp;${name}`;
+        item.innerHTML = getFileIcon(name, 13) + `&nbsp;${name}`;
         p.body.appendChild(item);
     });
     return p;
