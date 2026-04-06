@@ -14,10 +14,17 @@ const webIcons: IconEntry[] = [
   { label: "JavaScript", filename: "app.js", icon: "javascript", ext: "js" },
   { label: "TypeScript", filename: "main.ts", icon: "typescript", ext: "ts" },
   { label: "JSX / TSX", filename: "App.jsx", icon: "react", ext: "jsx" },
+  { label: "MDX", filename: "page.mdx", icon: "mdx", ext: "mdx" },
   { label: "Sass", filename: "styles.scss", icon: "sass", ext: "scss" },
   { label: "Less", filename: "styles.less", icon: "less", ext: "less" },
   { label: "Vue", filename: "App.vue", icon: "vue", ext: "vue" },
   { label: "Svelte", filename: "App.svelte", icon: "svelte", ext: "svelte" },
+  { label: "Pug", filename: "index.pug", icon: "pug", ext: "pug" },
+  { label: "Handlebars", filename: "view.hbs", icon: "handlebars", ext: "hbs" },
+  { label: "Nunjucks", filename: "layout.njk", icon: "nunjucks", ext: "njk" },
+  { label: "Liquid", filename: "index.liquid", icon: "liquid", ext: "liquid" },
+  { label: "Twig", filename: "base.twig", icon: "twig", ext: "twig" },
+  { label: "Razor", filename: "Index.cshtml", icon: "razor", ext: "cshtml" },
   { label: "GraphQL", filename: "schema.graphql", icon: "graphql", ext: "gql" },
   { label: "SVG", filename: "icon.svg", icon: "svg", ext: "svg" },
   { label: "XML", filename: "data.xml", icon: "xml", ext: "xml" },
@@ -54,6 +61,15 @@ const frameworkIcons: IconEntry[] = [
 const buildIcons: IconEntry[] = [
   { label: "Babel", filename: "babel.config.js", icon: "babel" },
   { label: "Bazel", filename: "BUILD.bazel", icon: "bazel" },
+  { label: "Rollup", filename: "rollup.config.js", icon: "rollup" },
+  { label: "Parcel", filename: ".parcelrc", icon: "parcel" },
+  { label: "esbuild", filename: "esbuild.config.js", icon: "esbuild" },
+  { label: "SWC", filename: ".swcrc", icon: "swc" },
+  { label: "OXC", filename: "oxlint.json", icon: "oxc" },
+  { label: "Rome", filename: "rome.json", icon: "rome" },
+  { label: "Snowpack", filename: "snowpack.config.js", icon: "snowpack" },
+  { label: "Turborepo", filename: "turbo.json", icon: "turborepo" },
+  { label: "JSR", filename: "jsr.json", icon: "jsr" },
   { label: "Bower", filename: "bower.json", icon: "bower" },
   { label: "Nix", filename: "default.nix", icon: "nix" },
   { label: "Wrangler", filename: "wrangler.toml", icon: "wrangler" },
@@ -69,6 +85,10 @@ const testingIcons: IconEntry[] = [
   { label: "Cucumber", filename: "cucumber.json", icon: "cucumber" },
   { label: "ESLint", filename: ".eslintrc.json", icon: "eslint" },
   { label: "Prettier", filename: ".prettierrc", icon: "prettier" },
+  { label: "Husky", filename: ".husky/pre-commit", icon: "husky" },
+  { label: "Renovate", filename: "renovate.json", icon: "renovate" },
+  { label: "Commitlint", filename: "commitlint.config.js", icon: "commitlint" },
+  { label: "EditorConfig", filename: ".editorconfig", icon: "editorconfig" },
 ];
 
 const aiIcons: IconEntry[] = [
@@ -84,6 +104,7 @@ const editorsIcons: IconEntry[] = [
   { label: "Visual Studio", filename: ".sln", icon: "visualstudio" },
   { label: "Vim", filename: ".vimrc", icon: "vim" },
   { label: "Chrome", filename: "manifest.json", icon: "chrome" },
+  { label: "Figma", filename: "design.fig", icon: "figma", ext: "fig" },
   { label: "Blender", filename: "scene.blend", icon: "blender", ext: "blend" },
   { label: "Photoshop", filename: "design.psd", icon: "adobe-photoshop", ext: "psd" },
   { label: "Illustrator", filename: "logo.ai", icon: "adobe-illustrator", ext: "ai" },
@@ -125,6 +146,7 @@ const devopsIcons: IconEntry[] = [
 ];
 
 const runtimesIcons: IconEntry[] = [
+  { label: "Node.js", filename: "node_modules", icon: "nodejs" },
   { label: "Android", filename: "AndroidManifest.xml", icon: "android" },
   { label: "Deno", filename: "main.ts", icon: "deno" },
   { label: "Bun", filename: "bun.lockb", icon: "bun" },
@@ -182,10 +204,16 @@ const configIcons: IconEntry[] = [
   { label: "YAML", filename: "config.yml", icon: "yaml", ext: "yml" },
   { label: "TOML", filename: "Cargo.toml", icon: "toml", ext: "toml" },
   { label: "Markdown", filename: "README.md", icon: "markdown", ext: "md" },
+  { label: "README", filename: "README.md", icon: "readme" },
+  { label: "License", filename: "LICENSE", icon: "license" },
+  { label: "Lock file", filename: "package-lock.json", icon: "lock" },
   { label: "SQL / DB", filename: "query.sql", icon: "database", ext: "sql" },
+  { label: "LaTeX", filename: "document.tex", icon: "tex", ext: "tex" },
+  { label: "AsciiDoc", filename: "docs.adoc", icon: "asciidoc", ext: "adoc" },
   { label: "CMake", filename: "CMakeLists.txt", icon: "cmake" },
   { label: "Makefile", filename: "Makefile", icon: "makefile" },
   { label: "tsconfig", filename: "tsconfig.json", icon: "tsconfig" },
+  { label: "Zip", filename: "archive.zip", icon: "zip", ext: "zip" },
 ];
 
 function IconCard({ label, filename, icon, ext }: IconEntry) {
