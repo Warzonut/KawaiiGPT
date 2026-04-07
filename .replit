@@ -44,5 +44,5 @@ externalPort = 3001
 [userenv]
 
 [userenv.shared]
-PROVIDER = "openrouter"
-MODEL_NAME = "openai/gpt-4o-mini"
+PROVIDER = "qwen"
+MODEL_NAME = "qwen/qwen3.6-plus:free"
