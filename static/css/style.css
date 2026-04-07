@@ -1369,7 +1369,7 @@ textarea#userInput::-webkit-scrollbar-thumb {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 0 6px;
+    padding: 4px 0 4px;
     flex-wrap: wrap;
 }
 
@@ -1403,9 +1403,23 @@ textarea#userInput::-webkit-scrollbar-thumb {
 
 .copilot-context-files {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 5px;
     flex-wrap: wrap;
+    flex-basis: 100%;
+    max-height: 96px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.copilot-context-files::-webkit-scrollbar { width: 4px; height: 4px; }
+.copilot-context-files::-webkit-scrollbar-track { background: transparent; }
+.copilot-context-files::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.copilot-context-files:not(:empty) {
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+    margin-top: 2px;
+    padding-bottom: 2px;
 }
 
 .context-file-badge {
