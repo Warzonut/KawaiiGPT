@@ -292,49 +292,80 @@ def index():
     return render_template("index.html", max_tokens=MAX_TOKENS, model_name=MODEL_NAME)
 
 _INSTALL_RE = re.compile(
-    r"^\s*(pip3?\s+install|npm\s+install|npm\s+i\b|yarn\s+add|pnpm\s+add|pnpm\s+install|"
-    r"apt(?:-get)?\s+install|brew\s+install|gem\s+install|cargo\s+add|go\s+get|"
-    r"composer\s+require|nuget\s+install|conda\s+install)",
+    r"^\s*(pip3?\s+install|npm\s+(install|i\b|ci\b)|yarn\s+(add|install)|pnpm\s+(add|install)|"
+    r"apt(?:-get)?\s+install|brew\s+install|gem\s+install|cargo\s+(add|install)|go\s+(get|install)|"
+    r"composer\s+require|nuget\s+install|conda\s+install|bun\s+(add|install))",
     re.IGNORECASE,
 )
 
 def _timeout_for(cmd: str) -> int:
-    return 180 if _INSTALL_RE.match(cmd) else 30
+    return 300 if _INSTALL_RE.match(cmd) else 60
+
+def _normalise_cmd(cmd: str) -> str:
+    """Normalise package-manager install commands for quiet, non-interactive operation."""
+    # pip / pip3
+    if re.match(r"^\s*pip3?\s+install", cmd, re.IGNORECASE):
+        cmd = re.sub(r"^\s*pip3?", "pip", cmd, count=1)
+        if "--quiet" not in cmd and "-q" not in cmd:
+            cmd += " --quiet"
+        return cmd
+    # npm install / npm i / npm ci
+    if re.match(r"^\s*npm\s+(install|i\b|ci\b)", cmd, re.IGNORECASE):
+        if "--no-fund" not in cmd:
+            cmd += " --no-fund"
+        if "--no-audit" not in cmd:
+            cmd += " --no-audit"
+        return cmd
+    # yarn add / yarn install
+    if re.match(r"^\s*yarn\s+(add|install)", cmd, re.IGNORECASE):
+        if "--silent" not in cmd and "-s" not in cmd:
+            cmd += " --silent"
+        return cmd
+    # pnpm add / pnpm install
+    if re.match(r"^\s*pnpm\s+(add|install)", cmd, re.IGNORECASE):
+        if "--reporter" not in cmd:
+            cmd += " --reporter=silent"
+        return cmd
+    return cmd
+
+_BASE_DIR = os.path.abspath(os.getcwd())
+
+def _resolve_cwd(cwd_param: str) -> str | None:
+    """Resolve and validate a working-directory parameter.
+    Returns an absolute path that exists, or None if invalid."""
+    if not cwd_param:
+        return None
+    p = os.path.abspath(os.path.expanduser(cwd_param))
+    if not os.path.isdir(p):
+        return None
+    return p
 
 @app.route("/exec", methods=["POST"])
 def exec_command():
     """Execute a shell command and stream its output line by line."""
-    import subprocess, shlex, threading, queue as _queue
-    cmd = (request.json or {}).get("cmd", "").strip()
+    import subprocess
+    data = request.json or {}
+    cmd = data.get("cmd", "").strip()
     if not cmd:
         return jsonify({"error": "No command"}), 400
 
-    timeout = _timeout_for(cmd)
+    cwd_param = data.get("cwd", "").strip()
+    cwd = _resolve_cwd(cwd_param)
 
-    # Normalise pip/npm so they work in the Replit venv without interaction flags
-    normalised = cmd
-    if re.match(r"^\s*pip3?\s+install", cmd, re.IGNORECASE):
-        normalised = re.sub(r"^\s*pip3?", "pip", cmd, count=1)
-        if "--quiet" not in normalised and "-q" not in normalised:
-            normalised += " --quiet"
-    elif re.match(r"^\s*npm\s+install", cmd, re.IGNORECASE) or re.match(r"^\s*npm\s+i\b", cmd, re.IGNORECASE):
-        if "--no-fund" not in normalised:
-            normalised += " --no-fund"
+    timeout = _timeout_for(cmd)
+    normalised = _normalise_cmd(cmd)
 
     def generate():
         try:
             proc = subprocess.Popen(
                 normalised, shell=True,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1
+                text=True, bufsize=1,
+                cwd=cwd
             )
-            buf = []
-            # stream lines
             for line in proc.stdout:
-                buf.append(line)
                 yield line
             proc.wait(timeout=timeout)
-            # sentinel with returncode
             yield f"\x00RC={proc.returncode}\n"
         except subprocess.TimeoutExpired:
             proc.kill()
@@ -343,6 +374,25 @@ def exec_command():
             yield f"\x00RC=1\nError: {e}\n"
 
     return Response(stream_with_context(generate()), mimetype="text/plain; charset=utf-8")
+
+@app.route("/resolve-dir", methods=["POST"])
+def resolve_dir():
+    """Resolve a directory path and return its absolute form + existence check."""
+    data = request.json or {}
+    path = data.get("path", "").strip()
+    if not path:
+        return jsonify({"error": "No path"}), 400
+    resolved = _resolve_cwd(path)
+    if resolved is None:
+        return jsonify({"error": f"Directory not found: {path}"}), 404
+    # Return path relative to base for display
+    try:
+        display = os.path.relpath(resolved, _BASE_DIR)
+        if display == '.':
+            display = ''
+    except ValueError:
+        display = resolved
+    return jsonify({"abs": resolved, "display": display})
 
 @app.route("/chat", methods=["POST"])
 def chat():

@@ -1981,3 +1981,33 @@ textarea#userInput::-webkit-scrollbar-thumb {
 .terminal-output.error { color: rgba(248,113,113,0.9); border-left-color: rgba(248,113,113,0.4); }
 .terminal-output.success { border-left-color: rgba(52,211,153,0.5); }
 
+.terminal-dir-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.terminal-dir-icon {
+    display: flex;
+    align-items: center;
+    color: rgba(251,191,36,0.7);
+    flex-shrink: 0;
+}
+.terminal-dir-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: monospace;
+    font-size: 0.78em;
+    color: rgba(251,191,36,0.85);
+    min-width: 0;
+    padding: 0;
+}
+.terminal-dir-input::placeholder { color: rgba(255,255,255,0.2); font-style: italic; }
+.terminal-dir-input:focus { color: rgba(251,191,36,1); }
+

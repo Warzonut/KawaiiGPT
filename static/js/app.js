@@ -1836,27 +1836,90 @@ function finalizeEditingPanel(p, files, repoFile) {
 
 const RUN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215z"/></svg>`;
 
+const FOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75z"/></svg>`;
+
+function _parseCdPrefix(cmd) {
+    const m = cmd.match(/^cd\s+([^\s&|;]+)\s*(?:&&\s*(.+))?$/i);
+    if (!m) return { dir: null, rest: cmd };
+    return { dir: m[1], rest: (m[2] || '').trim() || null };
+}
+
+function _isInstallCmd(cmd) {
+    return /^\s*(pip3?\s+install|npm\s+(install|i\b|ci\b)|yarn\s+(add|install)|pnpm\s+(add|install)|apt(-get)?\s+install|brew\s+install|gem\s+install|cargo\s+(add|install)|go\s+(get|install)|bun\s+(add|install))/i.test(cmd);
+}
+
+function _promptLabel(dir) {
+    if (!dir) return '$ ';
+    const short = dir.replace(/^\/home\/[^/]+/, '~').replace(/^\/root/, '~');
+    return `${short} $ `;
+}
+
+async function _resolveDir(dirStr) {
+    try {
+        const r = await fetch('/resolve-dir', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: dirStr })
+        });
+        if (!r.ok) return null;
+        const d = await r.json();
+        return d.abs || null;
+    } catch { return null; }
+}
+
 function createTerminalPanel(groups) {
     const totalCmds = groups.reduce((n, g) => n + g.commands.length, 0);
     const p = makePanelEl('terminal-panel', null, null, null, SVG_TERM,
         `Terminal (${totalCmds} command${totalCmds !== 1 ? 's' : ''})`);
 
-    groups.forEach(({ commands }) => {
+    groups.forEach(({ commands, suggestedDir }) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'terminal-line-wrapper';
 
-        commands.forEach(cmd => {
+        // ── Directory bar ────────────────────────────────────────────────────
+        const dirBar = document.createElement('div');
+        dirBar.className = 'terminal-dir-bar';
+
+        const dirIcon = document.createElement('span');
+        dirIcon.className = 'terminal-dir-icon';
+        dirIcon.innerHTML = FOLDER_SVG;
+
+        const dirInput = document.createElement('input');
+        dirInput.className = 'terminal-dir-input';
+        dirInput.type = 'text';
+        dirInput.placeholder = 'working directory (default: project root)';
+        dirInput.spellcheck = false;
+        if (suggestedDir) dirInput.value = suggestedDir;
+
+        dirBar.appendChild(dirIcon);
+        dirBar.appendChild(dirInput);
+        wrapper.appendChild(dirBar);
+
+        // ── Command lines ────────────────────────────────────────────────────
+        const cmdLines = [];
+        commands.forEach(rawCmd => {
+            const { dir: cdDir, rest } = _parseCdPrefix(rawCmd);
+            if (cdDir && !rest) {
+                if (!dirInput.value) dirInput.value = cdDir;
+                return;
+            }
+            const displayCmd = rest || rawCmd;
+
             const line = document.createElement('div');
             line.className = 'terminal-line';
             const prompt = document.createElement('span');
             prompt.className = 'terminal-prompt';
-            prompt.textContent = '$ ';
+            prompt.textContent = _promptLabel(dirInput.value || suggestedDir || '');
+            dirInput.addEventListener('input', () => {
+                prompt.textContent = _promptLabel(dirInput.value.trim());
+            });
             const textEl = document.createElement('span');
             textEl.className = 'terminal-cmd-text';
-            textEl.textContent = cmd;
+            textEl.textContent = displayCmd;
             line.appendChild(prompt);
             line.appendChild(textEl);
             wrapper.appendChild(line);
+            cmdLines.push({ raw: rawCmd, display: displayCmd, cdDir });
         });
 
         const outputEl = document.createElement('div');
@@ -1867,8 +1930,6 @@ function createTerminalPanel(groups) {
         runBtn.title = 'Run in terminal';
         runBtn.innerHTML = RUN_SVG + ' Run';
 
-        const isInstallCmd = cmd => /^\s*(pip3?\s+install|npm\s+install|npm\s+i\b|yarn\s+add|pnpm\s+(add|install)|apt(-get)?\s+install|brew\s+install|gem\s+install|cargo\s+add|go\s+get)/i.test(cmd);
-
         runBtn.addEventListener('click', async () => {
             runBtn.disabled = true;
             runBtn.innerHTML = '…';
@@ -1878,17 +1939,46 @@ function createTerminalPanel(groups) {
             let hadError = false;
             let errorOutput = '';
 
+            // Resolve base working directory
+            let baseCwd = dirInput.value.trim() || '';
+            if (baseCwd) {
+                const resolved = await _resolveDir(baseCwd);
+                if (!resolved) {
+                    combined = `Directory not found: ${baseCwd}\n`;
+                    outputEl.textContent = combined.trim();
+                    outputEl.className = 'terminal-output error';
+                    runBtn.disabled = false;
+                    runBtn.innerHTML = RUN_SVG + ' Run';
+                    return;
+                }
+                baseCwd = resolved;
+            }
+
+            // Build execution list – handle inline `cd dir && cmd`
+            const execList = [];
+            for (const item of cmdLines) {
+                const { cdDir, display } = item;
+                let effectiveCwd = baseCwd;
+                if (cdDir) {
+                    const merged = cdDir.startsWith('/') ? cdDir : (baseCwd ? baseCwd + '/' + cdDir : cdDir);
+                    const resolved = await _resolveDir(merged);
+                    effectiveCwd = resolved || merged;
+                }
+                execList.push({ cmd: display, cwd: effectiveCwd });
+            }
+
             try {
-                for (const cmd of commands) {
-                    const isInstall = isInstallCmd(cmd);
-                    combined += `$ ${cmd}\n`;
+                for (const { cmd, cwd } of execList) {
+                    const isInstall = _isInstallCmd(cmd);
+                    const dirLabel = cwd ? cwd.replace(/^\/home\/[^/]+/, '~').replace(/^\/root/, '~') : '';
+                    combined += `${dirLabel ? dirLabel + ' ' : ''}$ ${cmd}\n`;
                     outputEl.textContent = combined + (isInstall ? 'Installing…' : 'Running…');
                     scrollToBottom();
 
                     const resp = await fetch('/exec', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cmd })
+                        body: JSON.stringify({ cmd, cwd })
                     });
 
                     if (!resp.ok) {
@@ -1899,7 +1989,6 @@ function createTerminalPanel(groups) {
                         break;
                     }
 
-                    // Stream the response line by line
                     const reader = resp.body.getReader();
                     const dec = new TextDecoder();
                     let buf = '';
@@ -1924,7 +2013,6 @@ function createTerminalPanel(groups) {
                             }
                         }
                     }
-                    // handle leftover buffer
                     if (buf.startsWith('\x00RC=')) returncode = parseInt(buf.slice(4));
 
                     if (returncode === null) returncode = 0;
@@ -1983,7 +2071,30 @@ function extractShellCommandGroups(text) {
         const lang = m[1].trim();
         if (shellLangs.test(lang)) {
             const lines = m[2].split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-            if (lines.length > 0) groups.push({ lang, commands: lines.slice(0, 10) });
+            if (lines.length === 0) continue;
+
+            // Detect a leading standalone `cd dir` as the working directory hint
+            let suggestedDir = null;
+            const filteredLines = [];
+            for (const line of lines.slice(0, 20)) {
+                const { dir, rest } = _parseCdPrefix(line);
+                if (dir && !rest) {
+                    if (!suggestedDir) suggestedDir = dir;
+                } else {
+                    filteredLines.push(line);
+                }
+            }
+
+            // Also try to pick up a project directory hint from surrounding prose
+            // e.g. "inside the `my-app` directory" or "in the my-app folder"
+            if (!suggestedDir) {
+                const dirHint = text.match(/(?:inside|in|into|from|within|the)\s+(?:the\s+)?[`"']?([\w./-]+)[`"']?\s+(?:directory|folder|project|repo)/i);
+                if (dirHint) suggestedDir = dirHint[1];
+            }
+
+            if (filteredLines.length > 0 || suggestedDir) {
+                groups.push({ lang, commands: filteredLines.slice(0, 15), suggestedDir });
+            }
         }
     }
     return groups;
