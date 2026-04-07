@@ -44,3 +44,5 @@ externalPort = 3001
 [userenv]
 
 [userenv.shared]
+PROVIDER = "openrouter"
+MODEL_NAME = "openai/gpt-4o-mini"
