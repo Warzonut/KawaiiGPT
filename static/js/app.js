@@ -2636,9 +2636,9 @@ let _ftData = null;
 let _ftOpen = localStorage.getItem('fileTreeOpen') !== 'false';
 
 const FT_ICONS = {
-    dir:        `<span class="material-icons" style="font-size:15px;color:rgba(251,191,36,0.75);line-height:1">folder</span>`,
-    dirOpen:    `<span class="material-icons" style="font-size:15px;color:rgba(251,191,36,0.95);line-height:1">folder_open</span>`,
-    chevron:    `<span class="material-icons" style="font-size:14px;line-height:1">chevron_right</span>`,
+    dir:     `<img src="/static/icons/folder.svg" width="14" height="14" style="vertical-align:middle;flex-shrink:0;display:inline-block" alt="">`,
+    dirOpen: `<img src="/static/icons/folder-open.svg" width="14" height="14" style="vertical-align:middle;flex-shrink:0;display:inline-block" alt="">`,
+    chevron: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="10" height="10"><path fill-rule="evenodd" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>`,
 };
 
 const EXT_COLORS = {
@@ -2652,9 +2652,7 @@ const EXT_COLORS = {
 };
 
 function _ftFileIcon(name) {
-    const ext = name.split('.').pop().toLowerCase();
-    const color = EXT_COLORS[ext] || 'rgba(148,163,184,0.6)';
-    return `<span class="material-icons" style="font-size:15px;color:${color};line-height:1">insert_drive_file</span>`;
+    return getFileIcon(name, 14);
 }
 
 let _ftGithubMode = false;

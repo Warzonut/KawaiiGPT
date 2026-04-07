@@ -2125,12 +2125,7 @@ textarea#userInput::-webkit-scrollbar-thumb {
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    opacity: 0.85;
-}
-.rs-dir-icon .material-icons, .rs-file-icon .material-icons {
-    font-size: 15px !important;
-    line-height: 1;
-    vertical-align: middle;
+    opacity: 0.7;
 }
 .rs-dir-chevron {
     flex-shrink: 0;
@@ -2139,11 +2134,6 @@ textarea#userInput::-webkit-scrollbar-thumb {
     color: var(--text-muted);
     transition: transform 0.15s;
     margin-right: 1px;
-}
-.rs-dir-chevron .material-icons {
-    font-size: 14px !important;
-    line-height: 1;
-    transition: transform 0.15s;
 }
 .rs-dir.open > .rs-dir-chevron { transform: rotate(90deg); }
 .rs-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
