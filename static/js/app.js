@@ -2087,9 +2087,14 @@ function extractShellCommandGroups(text) {
 
             // Also try to pick up a project directory hint from surrounding prose
             // e.g. "inside the `my-app` directory" or "in the my-app folder"
+            // Only accept backtick/quote-wrapped names or names that look like paths (contain . / or -)
             if (!suggestedDir) {
-                const dirHint = text.match(/(?:inside|in|into|from|within|the)\s+(?:the\s+)?[`"']?([\w./-]+)[`"']?\s+(?:directory|folder|project|repo)/i);
-                if (dirHint) suggestedDir = dirHint[1];
+                const SKIP = /^(your|my|the|this|that|a|an|our|its|their|any|some|new|old|root|main|current|project|app|repo|src|home)$/i;
+                const dirHint = text.match(/(?:inside|in|into|from|within)\s+(?:the\s+)?[`"']([^`"']+)[`"']\s+(?:directory|folder|project|repo)/i)
+                    || text.match(/(?:inside|in|into|from|within)\s+(?:the\s+)?([\w][.\w/-]+)\s+(?:directory|folder|project|repo)/i);
+                if (dirHint && dirHint[1] && !SKIP.test(dirHint[1].trim())) {
+                    suggestedDir = dirHint[1].trim();
+                }
             }
 
             if (filteredLines.length > 0 || suggestedDir) {
