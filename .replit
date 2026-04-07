@@ -44,5 +44,5 @@ externalPort = 3001
 [userenv]
 
 [userenv.shared]
-PROVIDER = "qwen"
+PROVIDER = "openrouter"
 MODEL_NAME = "qwen/qwen3.6-plus:free"
