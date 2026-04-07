@@ -36,8 +36,8 @@ else:
         _client_error = "Missing OPENROUTER_API_KEY. Set it in the environment."
 
 # Total context window for the endpoint (input + output combined).
-# qwen/qwen3.6-plus:free context window. Override with CONTEXT_LIMIT env var if needed.
-CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(1_000_000)))
+# qwen3.6-plus:free actual limit is 983616. Override with CONTEXT_LIMIT env var if needed.
+CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(983_616)))
 
 # Max tokens for a single completion response. Defaults to the full context limit;
 # the actual value sent per-request is clamped dynamically based on input size.
@@ -474,21 +474,45 @@ def chat():
     if effective_max > MAX_TOKENS:
         effective_max = MAX_TOKENS
 
-    full_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+    # Reserve tokens for the output; trim history so input fits within the context window.
+    # Use 3 chars/token estimate (conservative for mixed prose+code).
+    CHARS_PER_TOKEN = 3
+    OUTPUT_RESERVE = min(effective_max, 8192)  # reserve space for the reply
+    INPUT_CHAR_BUDGET = (CONTEXT_LIMIT - OUTPUT_RESERVE) * CHARS_PER_TOKEN
+
+    system_msg = {"role": "system", "content": SYSTEM_PROMPT}
+    system_chars = len(SYSTEM_PROMPT)
+
+    # Trim oldest non-system messages until the history fits the budget
+    trimmed = list(messages)
+    while trimmed:
+        total_chars = system_chars + sum(
+            len(m.get("content", "") if isinstance(m.get("content"), str) else "")
+            for m in trimmed
+        )
+        if total_chars <= INPUT_CHAR_BUDGET:
+            break
+        # Always keep at least the last user message
+        if len(trimmed) <= 1:
+            break
+        trimmed.pop(0)
+
+    if len(trimmed) < len(messages):
+        print(f"[DEBUG] trimmed {len(messages) - len(trimmed)} old messages to fit context window")
+
+    full_messages = [system_msg] + trimmed
 
     # Estimate input token count and clamp output so input + output stays within
-    # the endpoint's total context limit. Use 2 chars/token (conservative for code)
-    # plus a 25% safety buffer to avoid overruns.
+    # the endpoint's total context limit.
     estimated_input_chars = sum(
         len(m.get("content", "") if isinstance(m.get("content"), str) else "")
         for m in full_messages
     )
-    estimated_input_tokens = max(1, estimated_input_chars // 2)
-    safe_input_tokens = int(estimated_input_tokens * 1.25)
-    headroom = max(1, CONTEXT_LIMIT - safe_input_tokens)
+    estimated_input_tokens = max(1, estimated_input_chars // CHARS_PER_TOKEN)
+    headroom = max(1, CONTEXT_LIMIT - estimated_input_tokens)
     if effective_max > headroom:
         effective_max = headroom
-        print(f"[DEBUG] clamped effective_max to {effective_max} (estimated_input_tokens={estimated_input_tokens}, safe_input_tokens={safe_input_tokens})")
+        print(f"[DEBUG] clamped effective_max to {effective_max} (estimated_input_tokens={estimated_input_tokens})")
 
     # DEBUG: surface the requested/effective max tokens to logs and response headers
     print(f"[DEBUG] requested_max={requested_max} effective_max={effective_max}")
