@@ -44,4 +44,4 @@ externalPort = 3001
 [userenv]
 
 [userenv.shared]
-PROVIDER = "qwen"
+PROVIDER = "openrouter"
