@@ -1953,31 +1953,26 @@ function createTerminalPanel(groups) {
                 }
             }
 
-            // Build execution list – handle inline `cd dir && cmd`
-            const execList = [];
-            for (const item of cmdLines) {
-                const { cdDir, display } = item;
-                let effectiveCwd = baseCwd;
-                if (cdDir) {
-                    const merged = cdDir.startsWith('/') ? cdDir : (baseCwd ? baseCwd + '/' + cdDir : cdDir);
-                    const resolved = await _resolveDir(merged);
-                    effectiveCwd = resolved || merged;
-                }
-                execList.push({ cmd: display, cwd: effectiveCwd });
+            // Build a single script from all command lines so multi-line
+            // constructs (heredocs, if/fi, etc.) work correctly.
+            const scriptLines = cmdLines.map(item => item.raw);
+            const script = scriptLines.join('\n');
+            const isAnyInstall = cmdLines.some(({ display }) => _isInstallCmd(display));
+            const dirLabel = baseCwd ? baseCwd.replace(/^\/home\/[^/]+/, '~').replace(/^\/root/, '~') : '';
+
+            // Show all commands in the output header
+            for (const { display } of cmdLines) {
+                combined += `${dirLabel ? dirLabel + ' ' : ''}$ ${display}\n`;
             }
+            outputEl.textContent = combined + (isAnyInstall ? 'Installing…' : 'Running…');
+            scrollToBottom();
 
             try {
-                for (const { cmd, cwd } of execList) {
-                    const isInstall = _isInstallCmd(cmd);
-                    const dirLabel = cwd ? cwd.replace(/^\/home\/[^/]+/, '~').replace(/^\/root/, '~') : '';
-                    combined += `${dirLabel ? dirLabel + ' ' : ''}$ ${cmd}\n`;
-                    outputEl.textContent = combined + (isInstall ? 'Installing…' : 'Running…');
-                    scrollToBottom();
-
+                {
                     const resp = await fetch('/exec', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cmd, cwd })
+                        body: JSON.stringify({ cmd: script, cwd: baseCwd })
                     });
 
                     if (!resp.ok) {
@@ -1985,8 +1980,7 @@ function createTerminalPanel(groups) {
                         outputEl.textContent = combined.trim();
                         outputEl.className = 'terminal-output error';
                         hadError = true; errorOutput = combined.trim();
-                        break;
-                    }
+                    } else {
 
                     const reader = resp.body.getReader();
                     const dec = new TextDecoder();
@@ -2024,15 +2018,14 @@ function createTerminalPanel(groups) {
                         combined += 'Command timed out.\n';
                         outputEl.textContent = combined.trim();
                         hadError = true; errorOutput = combined.trim();
-                        break;
-                    }
-                    if (returncode !== 0) {
+                    } else if (returncode !== 0) {
                         outputEl.className = 'terminal-output error';
                         hadError = true; errorOutput = combined.trim();
-                        break;
+                    } else {
+                        outputEl.className = 'terminal-output success';
                     }
-                    outputEl.className = 'terminal-output success';
-                }
+                    } // close resp.ok else
+                } // close outer block
             } catch (e) {
                 outputEl.textContent = (combined + `\nFailed: ${e.message}`).trim();
                 outputEl.className = 'terminal-output error';
