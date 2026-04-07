@@ -2187,6 +2187,19 @@ function renderContextFileBadges() {
     const pushBtn = document.getElementById('githubPushBtn');
     if (pullBtn) pullBtn.style.display = hasFiles ? '' : 'none';
     if (pushBtn) pushBtn.style.display = hasFiles ? '' : 'none';
+
+    const terminalBtn = document.getElementById('terminalModeBtn');
+    if (terminalBtn) {
+        terminalBtn.disabled = !hasFiles;
+        terminalBtn.title = hasFiles ? 'Terminal' : 'Import a GitHub repo to unlock Terminal';
+        if (!hasFiles && currentMode === 'terminal') {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'chat'));
+            currentMode = 'chat';
+            if (interactiveTerminal) interactiveTerminal.style.display = 'none';
+            if (messagesContainer) messagesContainer.style.display = '';
+            if (inputArea) inputArea.style.display = '';
+        }
+    }
 }
 
 // ── Import Repo Modal ─────────────────────────────────────────────────────

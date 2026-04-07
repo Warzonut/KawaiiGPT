@@ -142,6 +142,12 @@ body {
     color: var(--accent);
 }
 
+.mode-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: auto;
+}
+
 /* ── Settings toggle row ── */
 .setting-row {
     display: flex;
