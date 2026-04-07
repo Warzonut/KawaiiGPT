@@ -2200,6 +2200,7 @@ function renderContextFileBadges() {
             if (inputArea) inputArea.style.display = '';
         }
     }
+    if (currentMode === 'terminal') refreshSmartTerminal();
 }
 
 // ── Import Repo Modal ─────────────────────────────────────────────────────
@@ -2620,6 +2621,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
         } else if (isTerminal) {
             if (fileTreeToggleBtn) fileTreeToggleBtn.style.display = 'none';
             _ftSetOpen(false);
+            refreshSmartTerminal();
             setTimeout(() => document.getElementById('itermCmd')?.focus(), 50);
         }
     });
@@ -2736,7 +2738,161 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
             else { historyIdx = -1; cmdInput.value = ''; }
         }
     });
+
+    // ── AI Command Generation ──────────────────────────────────────────────
+    const aiInput = document.getElementById('itermAiInput');
+    const aiBtn = document.getElementById('itermAiBtn');
+
+    async function generateAiCommand() {
+        const desc = aiInput ? aiInput.value.trim() : '';
+        if (!desc) return;
+        if (aiBtn) { aiBtn.textContent = '…'; aiBtn.disabled = true; }
+        try {
+            const resp = await fetch('/terminal-suggest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: desc, context_files: repoContextFiles.map(f => ({ path: f.path, content: f.content })) })
+            });
+            const data = await resp.json();
+            if (data.command && cmdInput) {
+                cmdInput.value = data.command;
+                cmdInput.focus();
+                if (aiInput) aiInput.value = '';
+            }
+        } catch (e) {
+            if (cmdInput) cmdInput.value = '';
+        } finally {
+            if (aiBtn) { aiBtn.textContent = 'Generate'; aiBtn.disabled = false; }
+        }
+    }
+
+    if (aiBtn) aiBtn.addEventListener('click', generateAiCommand);
+    if (aiInput) {
+        aiInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); generateAiCommand(); }
+        });
+    }
 })();
+
+// ── Smart Terminal: project detection + quick actions ──────────────────────
+function detectProjectType(files) {
+    const paths = files.map(f => (f.path || '').toLowerCase());
+    if (paths.some(p => p.endsWith('package.json'))) return 'node';
+    if (paths.some(p => p.endsWith('requirements.txt') || p.endsWith('setup.py') || p.endsWith('pyproject.toml'))) return 'python';
+    if (paths.some(p => p.endsWith('cargo.toml'))) return 'rust';
+    if (paths.some(p => p.endsWith('go.mod'))) return 'go';
+    if (paths.some(p => p.endsWith('pom.xml'))) return 'java-maven';
+    if (paths.some(p => p.endsWith('build.gradle'))) return 'java-gradle';
+    if (paths.some(p => p.endsWith('composer.json'))) return 'php';
+    if (paths.some(p => p.endsWith('gemfile'))) return 'ruby';
+    return null;
+}
+
+function getQuickActions(type, files) {
+    const pkgFile = files.find(f => (f.path || '').toLowerCase().endsWith('package.json'));
+    let scripts = [];
+    if (pkgFile && pkgFile.content) {
+        try {
+            const pkg = JSON.parse(pkgFile.content);
+            scripts = Object.keys(pkg.scripts || {}).slice(0, 6);
+        } catch {}
+    }
+    const actions = {
+        node: [
+            { label: 'npm install', cmd: 'npm install' },
+            { label: 'npm run dev', cmd: 'npm run dev' },
+            { label: 'npm start', cmd: 'npm start' },
+            { label: 'npm test', cmd: 'npm test' },
+            { label: 'npm run build', cmd: 'npm run build' },
+        ],
+        python: [
+            { label: 'pip install', cmd: 'pip install -r requirements.txt' },
+            { label: 'python main.py', cmd: 'python main.py' },
+            { label: 'python app.py', cmd: 'python app.py' },
+            { label: 'pytest', cmd: 'pytest' },
+        ],
+        rust: [
+            { label: 'cargo build', cmd: 'cargo build' },
+            { label: 'cargo run', cmd: 'cargo run' },
+            { label: 'cargo test', cmd: 'cargo test' },
+        ],
+        go: [
+            { label: 'go build', cmd: 'go build ./...' },
+            { label: 'go run', cmd: 'go run .' },
+            { label: 'go test', cmd: 'go test ./...' },
+        ],
+        'java-maven': [
+            { label: 'mvn install', cmd: 'mvn install' },
+            { label: 'mvn test', cmd: 'mvn test' },
+            { label: 'mvn package', cmd: 'mvn package' },
+        ],
+        'java-gradle': [
+            { label: 'gradle build', cmd: './gradlew build' },
+            { label: 'gradle test', cmd: './gradlew test' },
+        ],
+        php: [
+            { label: 'composer install', cmd: 'composer install' },
+            { label: 'php artisan serve', cmd: 'php artisan serve' },
+        ],
+        ruby: [
+            { label: 'bundle install', cmd: 'bundle install' },
+            { label: 'rails server', cmd: 'rails server' },
+        ],
+    };
+    let base = (actions[type] || []).slice();
+    if (type === 'node' && scripts.length > 0) {
+        const extra = scripts
+            .filter(s => !['dev','start','test','build'].includes(s))
+            .map(s => ({ label: `npm run ${s}`, cmd: `npm run ${s}` }));
+        base = base.concat(extra).slice(0, 8);
+    }
+    return base;
+}
+
+function refreshSmartTerminal() {
+    const quickActionsEl = document.getElementById('itermQuickActions');
+    const cwdInput = document.getElementById('itermCwd');
+    if (!quickActionsEl) return;
+
+    if (!repoContextFiles || repoContextFiles.length === 0) {
+        quickActionsEl.style.display = 'none';
+        return;
+    }
+
+    const type = detectProjectType(repoContextFiles);
+    const actions = type ? getQuickActions(type, repoContextFiles) : [];
+
+    if (actions.length === 0) { quickActionsEl.style.display = 'none'; return; }
+
+    quickActionsEl.innerHTML = '';
+    const label = document.createElement('span');
+    label.className = 'iterm-qa-label';
+    label.textContent = type ? `${type} project` : 'Quick actions';
+    quickActionsEl.appendChild(label);
+
+    actions.forEach(({ label: lbl, cmd }) => {
+        const chip = document.createElement('button');
+        chip.className = 'iterm-qa-chip';
+        chip.textContent = lbl;
+        chip.title = cmd;
+        chip.addEventListener('click', () => {
+            const cmdInput = document.getElementById('itermCmd');
+            if (cmdInput) { cmdInput.value = cmd; cmdInput.focus(); }
+        });
+        quickActionsEl.appendChild(chip);
+    });
+    quickActionsEl.style.display = 'flex';
+
+    if (cwdInput && !cwdInput.value.trim()) {
+        const repoPaths = repoContextFiles.map(f => f.path || '');
+        const commonDir = repoPaths.reduce((common, p) => {
+            const parts = p.split('/');
+            if (parts.length > 1 && !common) return parts[0];
+            return common;
+        }, '');
+        if (commonDir) cwdInput.value = commonDir;
+    }
+}
 
 document.querySelectorAll('.quick-prompt-btn').forEach(btn => {
     btn.addEventListener('click', () => {

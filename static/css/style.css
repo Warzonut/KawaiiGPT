@@ -2229,6 +2229,74 @@ textarea#userInput::-webkit-scrollbar-thumb {
 .iterm-entry-out { color: rgba(200,200,215,0.85); }
 .iterm-entry-err { color: rgba(248,113,113,0.9); }
 .iterm-entry-running { color: rgba(251,191,36,0.7); font-style: italic; }
+.iterm-smart-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(139,92,246,0.15);
+    background: rgba(139,92,246,0.06);
+    flex-shrink: 0;
+}
+.iterm-ai-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: rgba(220,220,230,0.9);
+    font-family: inherit;
+    font-size: 0.85em;
+    min-width: 0;
+}
+.iterm-ai-input::placeholder { color: rgba(255,255,255,0.25); font-style: italic; }
+.iterm-ai-btn {
+    background: rgba(139,92,246,0.2);
+    border: 1px solid rgba(139,92,246,0.4);
+    color: rgba(196,181,253,0.9);
+    border-radius: 5px;
+    padding: 3px 10px;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+}
+.iterm-ai-btn:hover { background: rgba(139,92,246,0.35); }
+.iterm-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.iterm-quick-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(139,92,246,0.1);
+    background: rgba(15,15,22,0.5);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+.iterm-qa-label {
+    font-size: 0.72em;
+    color: rgba(139,92,246,0.7);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    margin-right: 2px;
+}
+.iterm-qa-chip {
+    background: rgba(139,92,246,0.1);
+    border: 1px solid rgba(139,92,246,0.25);
+    color: rgba(196,181,253,0.85);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.78em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+.iterm-qa-chip:hover {
+    background: rgba(139,92,246,0.22);
+    border-color: rgba(139,92,246,0.5);
+    color: rgba(196,181,253,1);
+}
 .iterm-input-row {
     border-top: 1px solid rgba(139,92,246,0.18);
     background: rgba(15,15,22,0.9);

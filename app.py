@@ -348,6 +348,45 @@ def _resolve_cwd(cwd_param: str) -> str | None:
         return None
     return p
 
+@app.route("/terminal-suggest", methods=["POST"])
+def terminal_suggest():
+    """Use AI to generate a shell command from a natural language description."""
+    if client is None:
+        return jsonify({"error": _client_error}), 503
+    data = request.json or {}
+    description = data.get("description", "").strip()
+    context_files = data.get("context_files", [])
+    if not description:
+        return jsonify({"error": "No description"}), 400
+
+    context_block = ""
+    if context_files:
+        parts = []
+        for f in context_files[:8]:
+            snippet = (f.get("content") or "")[:800]
+            parts.append(f"### {f.get('path','?')}\n{snippet}")
+        context_block = "\n\n".join(parts)
+
+    system = (
+        "You are a shell command expert. "
+        "Given a project context and a user description, output ONLY a single shell command "
+        "that accomplishes the task. No explanation, no markdown fences, no extra text — "
+        "just the raw command on one line."
+    )
+    user_msg = f"Project files:\n{context_block}\n\nTask: {description}" if context_block else f"Task: {description}"
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user_msg}],
+            max_tokens=256,
+            stream=False,
+        )
+        cmd = (resp.choices[0].message.content or "").strip().strip("`")
+        return jsonify({"command": cmd})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/exec", methods=["POST"])
 def exec_command():
     """Execute a shell command and stream its output line by line."""
