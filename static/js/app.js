@@ -1868,11 +1868,11 @@ async function _resolveDir(dirStr) {
 }
 
 function createTerminalPanel(groups) {
-    const totalCmds = groups.reduce((n, g) => n + g.commands.length, 0);
+    const totalCmds = groups.reduce((n, g) => g.commands.filter(l => l.trim()).length + n, 0);
     const p = makePanelEl('terminal-panel', null, null, null, SVG_TERM,
         `Terminal (${totalCmds} command${totalCmds !== 1 ? 's' : ''})`);
 
-    groups.forEach(({ commands, suggestedDir }) => {
+    groups.forEach(({ commands, rawBlock, suggestedDir }) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'terminal-line-wrapper';
 
@@ -1898,12 +1898,15 @@ function createTerminalPanel(groups) {
         // ── Command lines ────────────────────────────────────────────────────
         const cmdLines = [];
         commands.forEach(rawCmd => {
-            const { dir: cdDir, rest } = _parseCdPrefix(rawCmd);
+            const trimmed = rawCmd.trim();
+            if (!trimmed) { cmdLines.push({ raw: rawCmd, display: '', cdDir: null }); return; }
+            const { dir: cdDir, rest } = _parseCdPrefix(trimmed);
             if (cdDir && !rest) {
                 if (!dirInput.value) dirInput.value = cdDir;
+                cmdLines.push({ raw: rawCmd, display: '', cdDir });
                 return;
             }
-            const displayCmd = rest || rawCmd;
+            const displayCmd = rest || trimmed;
 
             const line = document.createElement('div');
             line.className = 'terminal-line';
@@ -1953,15 +1956,15 @@ function createTerminalPanel(groups) {
                 }
             }
 
-            // Build a single script from all command lines so multi-line
-            // constructs (heredocs, if/fi, etc.) work correctly.
-            const scriptLines = cmdLines.map(item => item.raw);
-            const script = scriptLines.join('\n');
+            // Run the raw block as a single script so multi-line constructs
+            // (heredocs, if/fi, for/done, etc.) execute correctly.
+            const script = rawBlock || cmdLines.map(item => item.raw).join('\n');
             const isAnyInstall = cmdLines.some(({ display }) => _isInstallCmd(display));
             const dirLabel = baseCwd ? baseCwd.replace(/^\/home\/[^/]+/, '~').replace(/^\/root/, '~') : '';
 
-            // Show all commands in the output header
+            // Show non-empty commands in the output header
             for (const { display } of cmdLines) {
+                if (!display.trim()) continue;
                 combined += `${dirLabel ? dirLabel + ' ' : ''}$ ${display}\n`;
             }
             outputEl.textContent = combined + (isAnyInstall ? 'Installing…' : 'Running…');
@@ -2062,14 +2065,19 @@ function extractShellCommandGroups(text) {
     while ((m = fenceRe.exec(text)) !== null) {
         const lang = m[1].trim();
         if (shellLangs.test(lang)) {
-            const lines = m[2].split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+            // Keep all lines (including empty-ish ones for heredocs) but strip full-line comments
+            // Do NOT filter empty lines here — they may be part of heredoc content
+            const rawLines = m[2].split('\n');
+            const lines = rawLines.map(l => l.trimEnd()).filter(l => !l.trimStart().startsWith('#'));
             if (lines.length === 0) continue;
 
             // Detect a leading standalone `cd dir` as the working directory hint
             let suggestedDir = null;
             const filteredLines = [];
-            for (const line of lines.slice(0, 20)) {
-                const { dir, rest } = _parseCdPrefix(line);
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) { filteredLines.push(line); continue; } // keep blank lines
+                const { dir, rest } = _parseCdPrefix(trimmed);
                 if (dir && !rest) {
                     if (!suggestedDir) suggestedDir = dir;
                 } else {
@@ -2078,8 +2086,6 @@ function extractShellCommandGroups(text) {
             }
 
             // Also try to pick up a project directory hint from surrounding prose
-            // e.g. "inside the `my-app` directory" or "in the my-app folder"
-            // Only accept backtick/quote-wrapped names or names that look like paths (contain . / or -)
             if (!suggestedDir) {
                 const SKIP = /^(your|my|the|this|that|a|an|our|its|their|any|some|new|old|root|main|current|project|app|repo|src|home)$/i;
                 const dirHint = text.match(/(?:inside|in|into|from|within)\s+(?:the\s+)?[`"']([^`"']+)[`"']\s+(?:directory|folder|project|repo)/i)
@@ -2089,8 +2095,10 @@ function extractShellCommandGroups(text) {
                 }
             }
 
-            if (filteredLines.length > 0 || suggestedDir) {
-                groups.push({ lang, commands: filteredLines.slice(0, 15), suggestedDir });
+            const nonEmpty = filteredLines.filter(l => l.trim());
+            if (nonEmpty.length > 0 || suggestedDir) {
+                // Store raw block content for execution + trimmed lines for display
+                groups.push({ lang, commands: filteredLines, rawBlock: filteredLines.join('\n'), suggestedDir });
             }
         }
     }
@@ -2580,11 +2588,18 @@ document.addEventListener('click', (e) => {
     }
 });
 
+const interactiveTerminal = document.getElementById('interactiveTerminal');
+const inputArea = document.querySelector('.input-area');
+
 document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentMode = btn.dataset.mode;
+        const isTerminal = currentMode === 'terminal';
+        if (interactiveTerminal) interactiveTerminal.style.display = isTerminal ? 'flex' : 'none';
+        if (messagesContainer) messagesContainer.style.display = isTerminal ? 'none' : '';
+        if (inputArea) inputArea.style.display = isTerminal ? 'none' : '';
         if (currentMode === 'chat') {
             if (fileTreeToggleBtn) fileTreeToggleBtn.style.display = 'none';
             _ftSetOpen(false);
@@ -2593,9 +2608,126 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
                 fileTreeToggleBtn.style.display = '';
                 _ftSetOpen(true);
             }
+        } else if (isTerminal) {
+            if (fileTreeToggleBtn) fileTreeToggleBtn.style.display = 'none';
+            _ftSetOpen(false);
+            setTimeout(() => document.getElementById('itermCmd')?.focus(), 50);
         }
     });
 });
+
+// ── Interactive Terminal ────────────────────────────────────────────────────
+(function initInteractiveTerminal() {
+    const history = document.getElementById('itermHistory');
+    const cwdInput = document.getElementById('itermCwd');
+    const cmdInput = document.getElementById('itermCmd');
+    const runBtn = document.getElementById('itermRunBtn');
+    const clearBtn = document.getElementById('itermClearBtn');
+    const promptEl = document.getElementById('itermPrompt');
+    if (!history || !cmdInput) return;
+
+    const cmdHistory = [];
+    let historyIdx = -1;
+
+    function updatePrompt() {
+        const cwd = cwdInput.value.trim();
+        const label = cwd ? cwd.replace(/^\/home\/[^/]+/, '~').replace(/^\/root/, '~') : '~';
+        if (promptEl) promptEl.textContent = `${label} $ `;
+    }
+    cwdInput.addEventListener('input', updatePrompt);
+
+    function appendEntry(type, text) {
+        const div = document.createElement('div');
+        div.className = `iterm-entry iterm-entry-${type}`;
+        div.textContent = text;
+        history.appendChild(div);
+        history.scrollTop = history.scrollHeight;
+        return div;
+    }
+
+    async function runCommand(cmd) {
+        if (!cmd.trim()) return;
+        cmdHistory.unshift(cmd);
+        historyIdx = -1;
+
+        const cwdVal = cwdInput.value.trim();
+        let cwd = '';
+        if (cwdVal) {
+            const resolved = await _resolveDir(cwdVal);
+            cwd = resolved || '';
+            if (!resolved) appendEntry('err', `Note: directory "${cwdVal}" not found, using project root.`);
+        }
+
+        const promptLabel = promptEl ? promptEl.textContent : '$ ';
+        appendEntry('cmd', promptLabel + cmd);
+        const runningEl = appendEntry('running', 'Running…');
+
+        runBtn.disabled = true;
+        cmdInput.disabled = true;
+
+        try {
+            const resp = await fetch('/exec', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cmd, cwd })
+            });
+            runningEl.remove();
+            if (!resp.ok) {
+                appendEntry('err', `Error: HTTP ${resp.status}`);
+                return;
+            }
+            const reader = resp.body.getReader();
+            const dec = new TextDecoder();
+            let buf = '';
+            let outEl = null;
+            let outText = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop();
+                for (const line of lines) {
+                    if (line.startsWith('\x00RC=')) continue;
+                    if (!outEl) outEl = appendEntry('out', '');
+                    outText += line + '\n';
+                    outEl.textContent = outText.trimEnd();
+                    history.scrollTop = history.scrollHeight;
+                }
+            }
+        } catch (e) {
+            runningEl.remove();
+            appendEntry('err', `Failed: ${e.message}`);
+        } finally {
+            runBtn.disabled = false;
+            cmdInput.disabled = false;
+            cmdInput.value = '';
+            cmdInput.focus();
+            history.scrollTop = history.scrollHeight;
+        }
+    }
+
+    runBtn.addEventListener('click', () => runCommand(cmdInput.value));
+    clearBtn.addEventListener('click', () => { history.innerHTML = ''; });
+
+    cmdInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            runCommand(cmdInput.value);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (historyIdx < cmdHistory.length - 1) {
+                historyIdx++;
+                cmdInput.value = cmdHistory[historyIdx] || '';
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (historyIdx > 0) { historyIdx--; cmdInput.value = cmdHistory[historyIdx] || ''; }
+            else { historyIdx = -1; cmdInput.value = ''; }
+        }
+    });
+})();
 
 document.querySelectorAll('.quick-prompt-btn').forEach(btn => {
     btn.addEventListener('click', () => {
