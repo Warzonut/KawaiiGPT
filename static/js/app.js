@@ -1028,6 +1028,15 @@ function addMessage(role, content) {
     msgDiv.appendChild(contentDiv);
 
     messagesContainer.appendChild(msgDiv);
+
+    if (role === 'bot') {
+        const shellGroups = extractShellCommandGroups(content);
+        if (shellGroups.length > 0) {
+            const termPanel = createTerminalPanel(shellGroups);
+            messagesContainer.appendChild(termPanel.el);
+        }
+    }
+
     scrollToBottom();
 
     return { bubble, contentDiv };
@@ -1530,19 +1539,6 @@ async function sendMessage(text) {
                 }
             }
             finalizeEditingPanel(editingPanel, [codeFilename], repoFile);
-        }
-
-        // Show terminal panel if AI response contains shell commands
-        const shellGroups = extractShellCommandGroups(cleanText);
-        if (shellGroups.length > 0) {
-            const termPanel = createTerminalPanel(shellGroups);
-            const botMsgDiv = bubble.closest('.message');
-            if (botMsgDiv && botMsgDiv.nextSibling) {
-                messagesContainer.insertBefore(termPanel.el, botMsgDiv.nextSibling);
-            } else {
-                messagesContainer.appendChild(termPanel.el);
-            }
-            scrollToBottom();
         }
 
         // In chat mode, inject a switch button when user asked for code
