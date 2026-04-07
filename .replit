@@ -44,4 +44,3 @@ externalPort = 3001
 [userenv]
 
 [userenv.shared]
-PROVIDER = "openrouter"
