@@ -45,4 +45,4 @@ externalPort = 3001
 
 [userenv.shared]
 PROVIDER = "qwen"
-MODEL_NAME = "qwen/qwen-2.5-72b-instruct:free"
+MODEL_NAME = "qwen/qwen3.6-plus:free"
