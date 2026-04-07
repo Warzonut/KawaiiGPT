@@ -1944,14 +1944,13 @@ function createTerminalPanel(groups) {
             if (baseCwd) {
                 const resolved = await _resolveDir(baseCwd);
                 if (!resolved) {
-                    combined = `Directory not found: ${baseCwd}\n`;
+                    combined = `Note: Directory "${baseCwd}" not found — running from project root.\n`;
                     outputEl.textContent = combined.trim();
-                    outputEl.className = 'terminal-output error';
-                    runBtn.disabled = false;
-                    runBtn.innerHTML = RUN_SVG + ' Run';
-                    return;
+                    outputEl.className = 'terminal-output';
+                    baseCwd = '';
+                } else {
+                    baseCwd = resolved;
                 }
-                baseCwd = resolved;
             }
 
             // Build execution list – handle inline `cd dir && cmd`
