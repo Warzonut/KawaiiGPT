@@ -375,6 +375,59 @@ def exec_command():
 
     return Response(stream_with_context(generate()), mimetype="text/plain; charset=utf-8")
 
+_FILETREE_IGNORE = {
+    '.git', '__pycache__', 'node_modules', '.venv', 'venv', 'env',
+    '.env', 'dist', 'build', '.next', '.nuxt', '.cache', 'coverage',
+    '.mypy_cache', '.pytest_cache', '.tox', 'eggs', '*.egg-info',
+    '.idea', '.vscode', '.DS_Store', 'Thumbs.db', '.local',
+}
+
+def _build_tree(root: str, rel: str = '', max_depth: int = 6, _depth: int = 0):
+    if _depth > max_depth:
+        return []
+    entries = []
+    try:
+        items = sorted(os.scandir(os.path.join(root, rel) if rel else root), key=lambda e: (not e.is_dir(), e.name.lower()))
+    except PermissionError:
+        return []
+    for item in items:
+        if item.name in _FILETREE_IGNORE or item.name.startswith('.'):
+            continue
+        item_rel = f"{rel}/{item.name}" if rel else item.name
+        if item.is_dir(follow_symlinks=False):
+            children = _build_tree(root, item_rel, max_depth, _depth + 1)
+            entries.append({'name': item.name, 'path': item_rel, 'type': 'dir', 'children': children})
+        else:
+            entries.append({'name': item.name, 'path': item_rel, 'type': 'file',
+                            'size': item.stat().st_size if item.is_file() else 0})
+    return entries
+
+@app.route("/list-dir", methods=["GET"])
+def list_dir():
+    """Return the local project file tree."""
+    tree = _build_tree(_BASE_DIR)
+    return jsonify({"root": os.path.basename(_BASE_DIR), "tree": tree})
+
+@app.route("/read-file", methods=["POST"])
+def read_file_route():
+    """Read a local file and return its content (capped at 32 KB)."""
+    path = (request.json or {}).get("path", "").strip()
+    if not path:
+        return jsonify({"error": "No path"}), 400
+    abs_path = os.path.abspath(os.path.join(_BASE_DIR, path))
+    if not abs_path.startswith(_BASE_DIR):
+        return jsonify({"error": "Access denied"}), 403
+    if not os.path.isfile(abs_path):
+        return jsonify({"error": "File not found"}), 404
+    try:
+        size = os.path.getsize(abs_path)
+        with open(abs_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read(32768)
+        truncated = size > 32768
+        return jsonify({"path": path, "content": content, "truncated": truncated, "size": size})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/resolve-dir", methods=["POST"])
 def resolve_dir():
     """Resolve a directory path and return its absolute form + existence check."""

@@ -2610,3 +2610,196 @@ renderHistoryList();
 renderQueueUI();
 userInput.focus();
 console.debug('[DEBUG] KawaiiGPT client ready', { queueLength: messageQueue.length });
+
+// ── File Tree (Right Sidebar) ─────────────────────────────────────────────────
+
+const rightSidebar     = document.getElementById('rightSidebar');
+const fileTreeContainer = document.getElementById('fileTreeContainer');
+const fileTreeLoading  = document.getElementById('fileTreeLoading');
+const fileTreeSearch   = document.getElementById('fileTreeSearch');
+const fileTreeToggleBtn = document.getElementById('fileTreeToggleBtn');
+const fileTreeRefreshBtn = document.getElementById('fileTreeRefreshBtn');
+const fileTreeCollapseBtn = document.getElementById('fileTreeCollapseBtn');
+
+let _ftData = null;
+let _ftOpen = localStorage.getItem('fileTreeOpen') !== 'false';
+
+const FT_ICONS = {
+    dir:        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75z" fill="rgba(251,191,36,0.7)"/></svg>`,
+    dirOpen:    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M.513 1.5A1.5 1.5 0 0 1 2 0h6.5a1 1 0 0 1 1 1v4h4.5A1.5 1.5 0 0 1 15.5 6.5l-2.563 7.5a1 1 0 0 1-.945.67H.5a.5.5 0 0 1-.5-.5z" fill="rgba(251,191,36,0.9)"/></svg>`,
+    file:       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25z" fill="rgba(148,163,184,0.6)"/></svg>`,
+    chevron:    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="10" height="10"><path fill-rule="evenodd" d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>`,
+};
+
+const EXT_COLORS = {
+    js:'#f7df1e', ts:'#3178c6', jsx:'#61dafb', tsx:'#61dafb',
+    py:'#3776ab', rb:'#cc342d', go:'#00add8', rs:'#ce412b',
+    html:'#e34c26', css:'#264de4', scss:'#cd6799',
+    json:'#8bc34a', yaml:'#cb171e', yml:'#cb171e',
+    md:'#a78bfa', sh:'#4eaa25', bash:'#4eaa25',
+    sql:'#f29111', php:'#777bb4', java:'#ed8b00',
+    c:'#a8b9cc', cpp:'#f34b7d', cs:'#239120',
+};
+
+function _ftFileIcon(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const color = EXT_COLORS[ext] || 'rgba(148,163,184,0.6)';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="${color}" width="11" height="11"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25z"/></svg>`;
+}
+
+function _ftInContext(path) {
+    return (repoContextFiles || []).some(f => f && f.path === path && !f.owner);
+}
+
+function _ftBuildNode(item, depth, filter) {
+    const indent = depth * 14;
+    if (item.type === 'dir') {
+        const matches = !filter || _ftSubtreeMatches(item, filter);
+        if (filter && !matches) return null;
+        const el = document.createElement('div');
+        const row = document.createElement('div');
+        row.className = 'rs-dir';
+        row.style.paddingLeft = (10 + indent) + 'px';
+        row.innerHTML = `<span class="rs-dir-chevron">${FT_ICONS.chevron}</span><span class="rs-dir-icon">${FT_ICONS.dir}</span><span class="rs-name">${item.name}</span>`;
+        const children = document.createElement('div');
+        children.className = 'rs-children';
+        (item.children || []).forEach(child => {
+            const node = _ftBuildNode(child, depth + 1, filter);
+            if (node) children.appendChild(node);
+        });
+        row.addEventListener('click', () => {
+            const open = row.classList.toggle('open');
+            row.querySelector('.rs-dir-icon').innerHTML = open ? FT_ICONS.dirOpen : FT_ICONS.dir;
+            children.style.display = open ? 'block' : 'none';
+        });
+        if (filter) {
+            row.classList.add('open');
+            row.querySelector('.rs-dir-icon').innerHTML = FT_ICONS.dirOpen;
+            children.style.display = 'block';
+        }
+        el.appendChild(row);
+        el.appendChild(children);
+        return el;
+    } else {
+        const el = document.createElement('div');
+        el.className = 'rs-file';
+        if (_ftInContext(item.path)) el.classList.add('in-context');
+        el.style.paddingLeft = (10 + indent) + 'px';
+        el.dataset.path = item.path;
+        el.innerHTML = `<span class="rs-file-icon">${_ftFileIcon(item.name)}</span><span class="rs-name">${item.name}</span>`;
+        el.title = item.path;
+        el.addEventListener('click', () => _ftClickFile(item, el));
+        return el;
+    }
+}
+
+function _ftSubtreeMatches(item, filter) {
+    if (item.name.toLowerCase().includes(filter)) return true;
+    if (item.children) return item.children.some(c => _ftSubtreeMatches(c, filter));
+    return false;
+}
+
+async function _ftClickFile(item, el) {
+    document.querySelectorAll('.rs-file.active').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    try {
+        const resp = await fetch('/read-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: item.path })
+        });
+        if (!resp.ok) { _ftToast('Could not read file'); return; }
+        const data = await resp.json();
+        const ext = item.name.split('.').pop().toLowerCase();
+        const langMap = { js:'javascript', ts:'typescript', py:'python', rb:'ruby', go:'go',
+            rs:'rust', sh:'bash', html:'html', css:'css', json:'json', md:'markdown',
+            yaml:'yaml', yml:'yaml', php:'php', java:'java', cpp:'cpp', c:'c', cs:'csharp' };
+        const lang = langMap[ext] || ext;
+        let msg = `Here is the content of \`${item.path}\`:\n\`\`\`${lang}\n${data.content}\n\`\`\``;
+        if (data.truncated) msg += `\n\n_(file truncated at 32 KB — ${Math.round(data.size / 1024)} KB total)_`;
+        addFileToContextFromTree(item.path, msg);
+        el.classList.add('in-context');
+        _ftToast(`Added ${item.name} to context`);
+    } catch (e) {
+        _ftToast('Error reading file');
+    }
+}
+
+function addFileToContextFromTree(path, content) {
+    if (typeof repoContextFiles === 'undefined') return;
+    if (!repoContextFiles.find(f => f.path === path && !f.owner)) {
+        repoContextFiles.push({ path, content });
+    }
+    if (typeof renderContextFileBadges === 'function') renderContextFileBadges();
+}
+
+function _ftToast(msg) {
+    const t = document.createElement('div');
+    t.className = 'rs-file-toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2000);
+}
+
+function _ftRender(filter = '') {
+    if (!_ftData) return;
+    fileTreeLoading && (fileTreeLoading.style.display = 'none');
+    const q = filter.toLowerCase().trim();
+    fileTreeContainer.innerHTML = '';
+    if (fileTreeLoading) fileTreeContainer.appendChild(fileTreeLoading);
+    const treeWrap = document.createElement('div');
+    let count = 0;
+    (_ftData.tree || []).forEach(item => {
+        const node = _ftBuildNode(item, 0, q || null);
+        if (node) { treeWrap.appendChild(node); count++; }
+    });
+    if (count === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'rs-empty';
+        empty.textContent = q ? 'No matching files' : 'No files found';
+        treeWrap.appendChild(empty);
+    }
+    fileTreeContainer.appendChild(treeWrap);
+}
+
+async function _ftLoad() {
+    if (!fileTreeContainer) return;
+    if (fileTreeLoading) fileTreeLoading.style.display = 'flex';
+    fileTreeContainer.innerHTML = '';
+    if (fileTreeLoading) fileTreeContainer.appendChild(fileTreeLoading);
+    try {
+        const resp = await fetch('/list-dir');
+        _ftData = await resp.json();
+        _ftRender(fileTreeSearch ? fileTreeSearch.value : '');
+    } catch (e) {
+        if (fileTreeContainer) {
+            const err = document.createElement('div');
+            err.className = 'rs-empty';
+            err.textContent = 'Could not load files';
+            fileTreeContainer.appendChild(err);
+        }
+    }
+}
+
+function _ftSetOpen(open) {
+    _ftOpen = open;
+    localStorage.setItem('fileTreeOpen', open);
+    if (rightSidebar) rightSidebar.classList.toggle('collapsed', !open);
+    if (open && !_ftData) _ftLoad();
+}
+
+if (rightSidebar) {
+    _ftSetOpen(_ftOpen);
+    if (fileTreeToggleBtn) fileTreeToggleBtn.addEventListener('click', () => _ftSetOpen(!_ftOpen));
+    if (fileTreeCollapseBtn) fileTreeCollapseBtn.addEventListener('click', () => _ftSetOpen(false));
+    if (fileTreeRefreshBtn) fileTreeRefreshBtn.addEventListener('click', () => { _ftData = null; _ftLoad(); });
+    if (fileTreeSearch) {
+        let _ftSearchTimer = null;
+        fileTreeSearch.addEventListener('input', () => {
+            clearTimeout(_ftSearchTimer);
+            _ftSearchTimer = setTimeout(() => _ftRender(fileTreeSearch.value), 180);
+        });
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
