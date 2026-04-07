@@ -36,12 +36,12 @@ else:
         _client_error = "Missing OPENROUTER_API_KEY. Set it in the environment."
 
 # Total context window for the endpoint (input + output combined).
-# qwen3.6-plus:free actual limit is 983616. Override with CONTEXT_LIMIT env var if needed.
-CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(983_616)))
+# OpenRouter reports 1,000,000 tokens for qwen3.6-plus:free.
+CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(1_000_000)))
 
-# Max tokens for a single completion response. Defaults to the full context limit;
-# the actual value sent per-request is clamped dynamically based on input size.
-DEFAULT_MODEL_MAX_TOKENS = CONTEXT_LIMIT
+# Max tokens for a single completion response. Keep this well below the context
+# limit so there is room for the input history. 16 K is plenty for a reply.
+DEFAULT_MODEL_MAX_TOKENS = 16_384
 MODEL_MAX_TOKENS = int(os.environ.get("MODEL_MAX_TOKENS", str(DEFAULT_MODEL_MAX_TOKENS)))
 MAX_TOKENS = min(int(os.environ.get("MAX_TOKENS", str(MODEL_MAX_TOKENS))), MODEL_MAX_TOKENS)
 
@@ -475,10 +475,12 @@ def chat():
         effective_max = MAX_TOKENS
 
     # Reserve tokens for the output; trim history so input fits within the context window.
-    # Use 3 chars/token estimate (conservative for mixed prose+code).
-    CHARS_PER_TOKEN = 3
-    OUTPUT_RESERVE = min(effective_max, 8192)  # reserve space for the reply
-    INPUT_CHAR_BUDGET = (CONTEXT_LIMIT - OUTPUT_RESERVE) * CHARS_PER_TOKEN
+    # Use 1 char/token — very conservative but safe for code-heavy content where
+    # tokens are often a single character.
+    CHARS_PER_TOKEN = 1
+    OUTPUT_RESERVE = effective_max  # reserve exactly the output budget
+    INPUT_TOKEN_BUDGET = CONTEXT_LIMIT - OUTPUT_RESERVE
+    INPUT_CHAR_BUDGET = max(1, INPUT_TOKEN_BUDGET) * CHARS_PER_TOKEN
 
     system_msg = {"role": "system", "content": SYSTEM_PROMPT}
     system_chars = len(SYSTEM_PROMPT)
@@ -502,8 +504,7 @@ def chat():
 
     full_messages = [system_msg] + trimmed
 
-    # Estimate input token count and clamp output so input + output stays within
-    # the endpoint's total context limit.
+    # Estimate input token count (1 char = 1 token) and clamp output to fit.
     estimated_input_chars = sum(
         len(m.get("content", "") if isinstance(m.get("content"), str) else "")
         for m in full_messages
@@ -513,6 +514,7 @@ def chat():
     if effective_max > headroom:
         effective_max = headroom
         print(f"[DEBUG] clamped effective_max to {effective_max} (estimated_input_tokens={estimated_input_tokens})")
+    print(f"[DEBUG] input_chars={estimated_input_chars} estimated_input_tokens={estimated_input_tokens} effective_max={effective_max}")
 
     # DEBUG: surface the requested/effective max tokens to logs and response headers
     print(f"[DEBUG] requested_max={requested_max} effective_max={effective_max}")
