@@ -2851,7 +2851,6 @@ function getQuickActions(type, files) {
 
 function refreshSmartTerminal() {
     const quickActionsEl = document.getElementById('itermQuickActions');
-    const cwdInput = document.getElementById('itermCwd');
     if (!quickActionsEl) return;
 
     if (!repoContextFiles || repoContextFiles.length === 0) {
@@ -2882,16 +2881,6 @@ function refreshSmartTerminal() {
         quickActionsEl.appendChild(chip);
     });
     quickActionsEl.style.display = 'flex';
-
-    if (cwdInput && !cwdInput.value.trim()) {
-        const repoPaths = repoContextFiles.map(f => f.path || '');
-        const commonDir = repoPaths.reduce((common, p) => {
-            const parts = p.split('/');
-            if (parts.length > 1 && !common) return parts[0];
-            return common;
-        }, '');
-        if (commonDir) cwdInput.value = commonDir;
-    }
 }
 
 document.querySelectorAll('.quick-prompt-btn').forEach(btn => {
