@@ -606,7 +606,8 @@ async function retryLastResponse(msgDiv) {
     showTypingIndicator();
 
     try {
-        const payload = { messages: conversationHistory };
+        const modeSystemMsg = { role: 'system', content: getModePrefix() };
+        const payload = { messages: [modeSystemMsg, ...conversationHistory] };
 
         const response = await fetch('/chat', {
             method: 'POST',
@@ -1337,7 +1338,7 @@ async function sendMessage(text) {
     const repoCtx = buildRepoContextStr();
 
     const urlText = buildMessageWithURLContext(text);
-    const userText = getModePrefix() + urlText
+    const userText = urlText
         + (searchCtx ? '\n\n' + searchCtx : '')
         + (repoCtx   ? '\n\n' + repoCtx   : '');
 
@@ -1351,7 +1352,8 @@ async function sendMessage(text) {
     showTypingIndicator('Thinking...');
 
     try {
-        const payload = { messages: conversationHistory };
+        const modeSystemMsg = { role: 'system', content: getModePrefix() };
+        const payload = { messages: [modeSystemMsg, ...conversationHistory] };
         console.debug('[DEBUG] sending /chat payload', payload);
 
         const response = await fetch('/chat', {
