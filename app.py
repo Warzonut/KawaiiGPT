@@ -13,7 +13,7 @@ from openai import OpenAI
 
 app = Flask(__name__)
 
-# Provider selection: 'qwen' (Alibaba) or 'openrouter'
+# Provider selection: 'qwen' (Alibaba) or 'huggingface'
 PROVIDER = os.environ.get("PROVIDER", "qwen").lower()
 MODEL_NAME = os.environ.get("MODEL_NAME", "qwen/qwen3.6-plus:free")
 
@@ -28,15 +28,15 @@ if PROVIDER == "qwen":
     else:
         _client_error = "Missing QWEN_API_KEY or QWEN_API_URL. Set them in the environment."
 else:
-    OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-    BASE_URL = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api/v1")
-    if OPENROUTER_API_KEY:
-        client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=BASE_URL)
+    HF_API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_API_KEY")
+    BASE_URL = os.environ.get("AI_BASE_URL", "https://api-inference.huggingface.co/v1")
+    MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-14B-Instruct-1M")
+    if HF_API_KEY:
+        client = OpenAI(api_key=HF_API_KEY, base_url=BASE_URL)
     else:
-        _client_error = "Missing OPENROUTER_API_KEY. Set it in the environment."
+        _client_error = "Missing HF_TOKEN. Set it in the environment."
 
 # Total context window for the endpoint (input + output combined).
-# OpenRouter reports 1,000,000 tokens for qwen3.6-plus:free.
 CONTEXT_LIMIT = int(os.environ.get("CONTEXT_LIMIT", str(1_000_000)))
 
 # Max tokens for a single completion response. Keep this well below the context

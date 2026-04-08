@@ -1,6 +1,6 @@
 # KawaiiGPT
 
-A kawaii-themed AI chatbot and code writer with pluggable model providers (Alibaba Qwen or OpenRouter) and Flask.
+A kawaii-themed AI chatbot and code writer with pluggable model providers (Alibaba Qwen or Hugging Face) and Flask.
 
 ## Architecture
 
@@ -33,12 +33,12 @@ static/
 
 ## Environment Variables
 
-- `PROVIDER` - Optional. Choose `qwen` (default) or `openrouter`.
+- `PROVIDER` - Optional. Choose `qwen` (default) or `huggingface`.
 - `QWEN_API_KEY` - Required when using `PROVIDER=qwen` (do NOT commit this key to source control).
 - `QWEN_API_URL` - Required when using `PROVIDER=qwen`. Set this to your Qwen REST endpoint (or set `AI_BASE_URL`).
-- `OPENROUTER_API_KEY` - Required when using `PROVIDER=openrouter`.
+- `HF_TOKEN` - Required when using `PROVIDER=huggingface`. Your Hugging Face API token.
 - `AI_BASE_URL` - Optional base URL override for the selected provider.
-- `MODEL_NAME` - Optional. Defaults to `Qwen-Plus/Flash` for Qwen and `openrouter/hunter-alpha` for OpenRouter.
+- `MODEL_NAME` - Optional. Defaults to `qwen/qwen3.6-plus:free` for Qwen and `Qwen/Qwen2.5-14B-Instruct-1M` for Hugging Face.
 
 ## Running
 
