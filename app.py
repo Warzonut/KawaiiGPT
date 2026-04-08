@@ -45,6 +45,32 @@ DEFAULT_MODEL_MAX_TOKENS = 16_384
 MODEL_MAX_TOKENS = int(os.environ.get("MODEL_MAX_TOKENS", str(DEFAULT_MODEL_MAX_TOKENS)))
 MAX_TOKENS = min(int(os.environ.get("MAX_TOKENS", str(MODEL_MAX_TOKENS))), MODEL_MAX_TOKENS)
 
+# Per-model output token caps (some providers reject higher values).
+# Any model not listed falls back to MAX_TOKENS.
+MODEL_TOKEN_CAPS = {
+    "Qwen/Qwen2.5-72B-Instruct":                    8_192,
+    "Qwen/Qwen2.5-7B-Instruct":                     8_192,
+    "Qwen/Qwen2.5-Coder-32B-Instruct":              8_192,
+    "Qwen/Qwen2.5-Coder-7B-Instruct":               8_192,
+    "Qwen/Qwen2.5-Coder-3B-Instruct":               8_192,
+    "Qwen/Qwen3.5-9B":                              8_192,
+    "Qwen/Qwen3.5-27B":                             8_192,
+    "Qwen/Qwen3.5-122B-A10B":                       8_192,
+    "deepseek-ai/DeepSeek-V3":                     16_000,
+    "deepseek-ai/DeepSeek-V3-0324":                16_000,
+    "deepseek-ai/DeepSeek-R1":                      8_192,
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B":   8_192,
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B":    8_192,
+    "meta-llama/Llama-4-Scout-17B-16E-Instruct":   8_192,
+    "meta-llama/Llama-3.3-70B-Instruct":           8_192,
+    "meta-llama/Llama-3.1-8B-Instruct":            8_192,
+    "google/gemma-4-31B-it":                        8_192,
+    "google/gemma-3-27b-it":                        8_192,
+}
+
+def get_model_cap(model_name):
+    return MODEL_TOKEN_CAPS.get(model_name, MAX_TOKENS)
+
 # Allow larger incoming request bodies for long user messages (bytes). Default: 10MB
 # Configure with env var `MAX_CONTENT_LENGTH` (in bytes) if needed.
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', '10485760'))
@@ -514,13 +540,16 @@ def chat():
     except Exception:
         requested_max = None
 
-    effective_max = requested_max if requested_max is not None else MAX_TOKENS
+    model_cap = get_model_cap(request_model)
+    effective_max = requested_max if requested_max is not None else min(MAX_TOKENS, model_cap)
     try:
         effective_max = int(effective_max)
     except Exception:
-        effective_max = MAX_TOKENS
+        effective_max = model_cap
     if effective_max < 1:
         effective_max = 1
+    if effective_max > model_cap:
+        effective_max = model_cap
     if effective_max > MAX_TOKENS:
         effective_max = MAX_TOKENS
 
