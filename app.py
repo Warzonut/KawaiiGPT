@@ -561,11 +561,18 @@ def chat():
     INPUT_TOKEN_BUDGET = CONTEXT_LIMIT - OUTPUT_RESERVE
     INPUT_CHAR_BUDGET = max(1, INPUT_TOKEN_BUDGET) * CHARS_PER_TOKEN
 
-    system_msg = {"role": "system", "content": SYSTEM_PROMPT}
-    system_chars = len(SYSTEM_PROMPT)
+    # Separate any system messages the client sent (mode prefix) from the conversation.
+    # Merge them with the backend SYSTEM_PROMPT into a single system message so models
+    # that reject consecutive system messages (e.g. Qwen3.5) work correctly.
+    client_system = " ".join(
+        m.get("content", "") for m in messages if m.get("role") == "system"
+    ).strip()
+    combined_system = SYSTEM_PROMPT + ("\n\n" + client_system if client_system else "")
+    system_msg = {"role": "system", "content": combined_system}
+    system_chars = len(combined_system)
 
     # Trim oldest non-system messages until the history fits the budget
-    trimmed = list(messages)
+    trimmed = [m for m in messages if m.get("role") != "system"]
     while trimmed:
         total_chars = system_chars + sum(
             len(m.get("content", "") if isinstance(m.get("content"), str) else "")
