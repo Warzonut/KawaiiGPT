@@ -30,7 +30,7 @@ if PROVIDER == "qwen":
 else:
     HF_API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_API_KEY")
     BASE_URL = os.environ.get("AI_BASE_URL", "https://router.huggingface.co/v1")
-    MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-7B-Instruct")
+    MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen3-VL-8B-Instruct")
     if HF_API_KEY:
         client = OpenAI(api_key=HF_API_KEY, base_url=BASE_URL)
     else:

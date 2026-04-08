@@ -45,4 +45,4 @@ externalPort = 3001
 
 [userenv.shared]
 PROVIDER = "huggingface"
-MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+MODEL_NAME = "Qwen/Qwen3-VL-8B-Instruct"
