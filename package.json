@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/Warzonut/KawaiiGPT#readme",
   "dependencies": {
-    "material-icon-theme": "^5.33.1"
+    "material-icon-theme": "^5.33.1",
+    "socket.io-client": "^4.8.3"
   }
 }
