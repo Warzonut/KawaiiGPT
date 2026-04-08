@@ -1392,8 +1392,13 @@ textarea#userInput::-webkit-scrollbar-thumb {
     color: var(--text-secondary);
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
     white-space: nowrap;
+}
+
+.copilot-tool-btn svg {
+    flex-shrink: 0;
+    display: block;
 }
 
 .copilot-tool-btn:hover {
