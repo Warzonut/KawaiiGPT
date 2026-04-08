@@ -189,6 +189,30 @@
 
             <div class="input-area">
                 <div class="copilot-toolbar" id="copilotToolbar">
+                    <div class="model-picker-wrap">
+                        <button class="copilot-tool-btn" id="modelPickerBtn" title="Select AI model">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5c0 1.5-.6 2.8-1.6 3.8L21 17l-1.5 1.5-5.2-5.2A5 5 0 1 1 12 2z"/><circle cx="12" cy="7" r="2"/><path d="M7 17c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M5 21h14"/></svg>
+                            <span id="modelPickerLabel">Qwen3-VL-8B</span>
+                            <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><polygon points="0,1 8,1 4,7"/></svg>
+                        </button>
+                        <div class="model-picker-dropdown" id="modelPickerDropdown">
+                            <div class="model-picker-group">Qwen</div>
+                            <button class="model-picker-item active" data-model="Qwen/Qwen3-VL-8B-Instruct">Qwen3-VL-8B-Instruct <span class="model-tag">vision</span></button>
+                            <button class="model-picker-item" data-model="Qwen/Qwen3-8B">Qwen3-8B</button>
+                            <button class="model-picker-item" data-model="Qwen/Qwen3-32B">Qwen3-32B</button>
+                            <button class="model-picker-item" data-model="Qwen/Qwen3.5-9B">Qwen3.5-9B</button>
+                            <button class="model-picker-item" data-model="Qwen/Qwen2.5-72B-Instruct">Qwen2.5-72B-Instruct</button>
+                            <button class="model-picker-item" data-model="Qwen/Qwen2.5-Coder-32B-Instruct">Qwen2.5-Coder-32B <span class="model-tag">code</span></button>
+                            <div class="model-picker-group">DeepSeek</div>
+                            <button class="model-picker-item" data-model="deepseek-ai/DeepSeek-V3">DeepSeek-V3</button>
+                            <button class="model-picker-item" data-model="deepseek-ai/DeepSeek-R1">DeepSeek-R1 <span class="model-tag">reasoning</span></button>
+                            <div class="model-picker-group">Meta</div>
+                            <button class="model-picker-item" data-model="meta-llama/Llama-3.3-70B-Instruct">Llama-3.3-70B-Instruct</button>
+                            <button class="model-picker-item" data-model="meta-llama/Llama-4-Scout-17B-16E-Instruct">Llama-4-Scout-17B <span class="model-tag">new</span></button>
+                            <div class="model-picker-group">Google</div>
+                            <button class="model-picker-item" data-model="google/gemma-4-31B-it">Gemma-4-31B</button>
+                        </div>
+                    </div>
                     <button class="copilot-tool-btn" id="importRepoBtn" title="Import GitHub repository">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
                         Import Repo

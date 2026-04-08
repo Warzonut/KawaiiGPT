@@ -141,6 +141,7 @@ let displayMessages = [];
 let isStreaming = false;
 let currentMode = 'chat';
 let searchEnabled = localStorage.getItem('searchEnabled') !== 'false';
+let selectedModel = localStorage.getItem('selectedModel') || 'Qwen/Qwen3-VL-8B-Instruct';
 let currentChatId = generateId();
 let messageQueue = [];
 let editingQueueId = null;
@@ -607,7 +608,7 @@ async function retryLastResponse(msgDiv) {
 
     try {
         const modeSystemMsg = { role: 'system', content: getModePrefix() };
-        const payload = { messages: [modeSystemMsg, ...conversationHistory] };
+        const payload = { messages: [modeSystemMsg, ...conversationHistory], model: selectedModel };
 
         const response = await fetch('/chat', {
             method: 'POST',
@@ -1353,7 +1354,7 @@ async function sendMessage(text) {
 
     try {
         const modeSystemMsg = { role: 'system', content: getModePrefix() };
-        const payload = { messages: [modeSystemMsg, ...conversationHistory] };
+        const payload = { messages: [modeSystemMsg, ...conversationHistory], model: selectedModel };
         console.debug('[DEBUG] sending /chat payload', payload);
 
         const response = await fetch('/chat', {
@@ -2398,6 +2399,47 @@ async function importAllFiles() {
 
 if (importRepoBtn) importRepoBtn.addEventListener('click', openImportRepoModal);
 if (importRepoClose) importRepoClose.addEventListener('click', closeImportRepoModal);
+
+// ── Model Picker ────────────────────────────────────────────────────────────
+(function initModelPicker() {
+    const btn = document.getElementById('modelPickerBtn');
+    const dropdown = document.getElementById('modelPickerDropdown');
+    const label = document.getElementById('modelPickerLabel');
+    if (!btn || !dropdown || !label) return;
+
+    function shortName(model) {
+        return model.split('/').pop().replace(/-Instruct$/i, '').replace(/-it$/i, '');
+    }
+
+    function setModel(model) {
+        selectedModel = model;
+        localStorage.setItem('selectedModel', model);
+        label.textContent = shortName(model);
+        dropdown.querySelectorAll('.model-picker-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.model === model);
+        });
+    }
+
+    setModel(selectedModel);
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+    });
+
+    dropdown.querySelectorAll('.model-picker-item').forEach(el => {
+        el.addEventListener('click', () => {
+            setModel(el.dataset.model);
+            dropdown.classList.remove('open');
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && e.target !== btn) {
+            dropdown.classList.remove('open');
+        }
+    });
+})();
 if (importRepoModal) importRepoModal.addEventListener('click', (e) => { if (e.target === importRepoModal) closeImportRepoModal(); });
 if (repoFetchBtn) repoFetchBtn.addEventListener('click', fetchRepo);
 if (repoUrlInput) repoUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchRepo(); });

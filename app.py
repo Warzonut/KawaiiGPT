@@ -503,6 +503,9 @@ def chat():
     data = request.json or {}
     messages = data.get("messages", [])
 
+    # allow per-request model override from the client
+    request_model = data.get("model") or MODEL_NAME
+
     # allow per-request override from client, but clamp to the configured MAX_TOKENS
     requested_max = None
     try:
@@ -568,7 +571,7 @@ def chat():
 
     def generate():
         try:
-            print(f"[DEBUG] starting stream model={MODEL_NAME} max_tokens={effective_max} messages={len(full_messages)}")
+            print(f"[DEBUG] starting stream model={request_model} max_tokens={effective_max} messages={len(full_messages)}")
             # show a short preview of the last user message for diagnostics
             try:
                 last_preview = str(full_messages[-1]['content'])[:200].replace('\n', '\\n') if len(full_messages) else ''
@@ -578,7 +581,7 @@ def chat():
 
             try:
                 stream = client.chat.completions.create(
-                    model=MODEL_NAME,
+                    model=request_model,
                     messages=full_messages,
                     stream=True,
                     max_tokens=effective_max
@@ -590,7 +593,7 @@ def chat():
                 # Try a synchronous request for diagnostics
                 try:
                     resp = client.chat.completions.create(
-                        model=MODEL_NAME,
+                        model=request_model,
                         messages=full_messages,
                         max_tokens=effective_max
                     )
@@ -680,7 +683,7 @@ def chat():
                 print("[DEBUG] no streaming chunks received; attempting synchronous fallback for diagnostics")
                 try:
                     resp = client.chat.completions.create(
-                        model=MODEL_NAME,
+                        model=request_model,
                         messages=full_messages,
                         max_tokens=effective_max
                     )
